@@ -1,0 +1,42 @@
+# Build artifacts
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.out
+*.elf
+*.hex
+*.ihx
+*.map
+*.lk
+*.noi
+*.rel
+*.sym
+*.rst
+*.lst
+*.asm
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# SDCC generated
+*.adb
+*.cdb
+*.lib
+
+# Editor files
+.vscode/
+.clangd/
+.cache/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
