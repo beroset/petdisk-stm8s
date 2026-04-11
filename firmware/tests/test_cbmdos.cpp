@@ -1,16 +1,16 @@
 // CBM DOS protocol handler unit tests.
 #include "catch_amalgamated.hpp"
 #include "mock_hal.hpp"
-#include "cbmdos.hpp"
+#include "cbmdos.h"
 #include <cstring>
 
 // We need a minimal Ieee488 instance even though CbmDos tests don't exercise it.
 struct CbmFixture {
     MockGpioPort dataBus;
     MockGpioPin  dav, nrfd, ndac, atn, eoi, srq, ifc, ren;
-    Ieee488      ieee{dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8};
+    Ieee488      ieee{};
     MockFilesystem fs;
-    CbmDos       dos{ieee, fs};
+    CbmDos       dos{};
 
     CbmFixture() {
         atn.inject(true);
@@ -19,8 +19,17 @@ struct CbmFixture {
         dav.inject(true);
         nrfd.inject(true);
         ndac.inject(true);
-        ieee.init();
-        dos.reset();
+
+        Ieee488_init(&ieee,
+                     dataBus.port(),
+                     dav.pin(), nrfd.pin(), ndac.pin(),
+                     atn.pin(), eoi.pin(), srq.pin(),
+                     ifc.pin(), ren.pin(),
+                     8);
+        Ieee488_begin(&ieee);
+
+        CbmDos_init(&dos, &ieee, fs.fs());
+        CbmDos_reset(&dos);
     }
 };
 
@@ -28,24 +37,23 @@ struct CbmFixture {
 
 TEST_CASE("CbmDos initial status is OK", "[cbmdos]") {
     CbmFixture f;
-    const char* s = f.dos.getStatus();
+    const char* s = CbmDos_getStatus(&f.dos);
     CHECK(std::strncmp(s, "00, OK", 6) == 0);
 }
 
 TEST_CASE("CbmDos setError stores correct status string", "[cbmdos]") {
     CbmFixture f;
-    f.dos.setError(62, "FILE NOT FOUND", 0, 0);
-    const char* s = f.dos.getStatus();
-    // Should start with "62, FILE NOT FOUND"
+    CbmDos_setError(&f.dos, 62, "FILE NOT FOUND", 0, 0);
+    const char* s = CbmDos_getStatus(&f.dos);
     CHECK(std::strncmp(s, "62, FILE NOT FOUND", 18) == 0);
 }
 
 TEST_CASE("CbmDos readChannel 15 returns status string", "[cbmdos]") {
     CbmFixture f;
-    f.dos.setError(0, "OK", 0, 0);
+    CbmDos_setError(&f.dos, 0, "OK", 0, 0);
 
     uint8_t buf[64]{};
-    size_t n = f.dos.readChannel(15, buf, sizeof(buf));
+    size_t n = CbmDos_readChannel(&f.dos, 15, buf, sizeof(buf));
 
     REQUIRE(n > 0);
     buf[n] = '\0';
@@ -54,13 +62,13 @@ TEST_CASE("CbmDos readChannel 15 returns status string", "[cbmdos]") {
 
 TEST_CASE("CbmDos readChannel 15 resets status to OK after read", "[cbmdos]") {
     CbmFixture f;
-    f.dos.setError(62, "FILE NOT FOUND", 0, 0);
+    CbmDos_setError(&f.dos, 62, "FILE NOT FOUND", 0, 0);
 
     uint8_t buf[64]{};
-    f.dos.readChannel(15, buf, sizeof(buf));
+    CbmDos_readChannel(&f.dos, 15, buf, sizeof(buf));
 
     // After reading, status should reset to OK
-    const char* s = f.dos.getStatus();
+    const char* s = CbmDos_getStatus(&f.dos);
     CHECK(std::strncmp(s, "00, OK", 6) == 0);
 }
 
@@ -70,7 +78,7 @@ TEST_CASE("CbmDos processCommand opens data channel", "[cbmdos]") {
     CbmFixture f;
     f.fs.openResult = true;
 
-    f.dos.processCommand(2, "DATA.PRG", 8);
+    CbmDos_processCommand(&f.dos, 2, "DATA.PRG", 8);
 
     REQUIRE(f.fs.openCalls.size() == 1);
     CHECK(f.fs.openCalls[0].channel == 2);
@@ -80,7 +88,7 @@ TEST_CASE("CbmDos processCommand opens data channel", "[cbmdos]") {
 
 TEST_CASE("CbmDos processCommand channel 1 opens in write mode", "[cbmdos]") {
     CbmFixture f;
-    f.dos.processCommand(1, "OUT.SEQ", 7);
+    CbmDos_processCommand(&f.dos, 1, "OUT.SEQ", 7);
 
     REQUIRE(f.fs.openCalls.size() == 1);
     CHECK(f.fs.openCalls[0].mode == 1);  // channel 1 = write
@@ -92,16 +100,16 @@ TEST_CASE("CbmDos sets FILE NOT FOUND when open fails", "[cbmdos]") {
     f.fs.lastErrorCode = 62;
     f.fs.lastErrorMsg  = "FILE NOT FOUND";
 
-    f.dos.processCommand(2, "MISSING", 7);
+    CbmDos_processCommand(&f.dos, 2, "MISSING", 7);
 
-    const char* s = f.dos.getStatus();
+    const char* s = CbmDos_getStatus(&f.dos);
     CHECK(std::strncmp(s, "62,", 3) == 0);
 }
 
 TEST_CASE("CbmDos closeChannel calls filesystem close", "[cbmdos]") {
     CbmFixture f;
-    f.dos.processCommand(3, "TEST.PRG", 8);  // open it first
-    f.dos.closeChannel(3);
+    CbmDos_processCommand(&f.dos, 3, "TEST.PRG", 8);  // open it first
+    CbmDos_closeChannel(&f.dos, 3);
 
     REQUIRE(f.fs.closedChannels.size() == 1);
     CHECK(f.fs.closedChannels[0] == 3);
@@ -109,7 +117,7 @@ TEST_CASE("CbmDos closeChannel calls filesystem close", "[cbmdos]") {
 
 TEST_CASE("CbmDos closeChannel on unopened channel is harmless", "[cbmdos]") {
     CbmFixture f;
-    CHECK_NOTHROW(f.dos.closeChannel(5));
+    CHECK_NOTHROW(CbmDos_closeChannel(&f.dos, 5));
     CHECK(f.fs.closedChannels.empty());
 }
 
@@ -117,11 +125,11 @@ TEST_CASE("CbmDos closeChannel on unopened channel is harmless", "[cbmdos]") {
 
 TEST_CASE("CbmDos readChannel returns filesystem data", "[cbmdos]") {
     CbmFixture f;
-    f.dos.processCommand(2, "FILE.PRG", 8);
+    CbmDos_processCommand(&f.dos, 2, "FILE.PRG", 8);
     f.fs.readData = {0x01, 0x02, 0x03, 0x04};
 
     uint8_t buf[8]{};
-    size_t n = f.dos.readChannel(2, buf, sizeof(buf));
+    size_t n = CbmDos_readChannel(&f.dos, 2, buf, sizeof(buf));
 
     CHECK(n == 4);
     CHECK(buf[0] == 0x01);
@@ -131,16 +139,16 @@ TEST_CASE("CbmDos readChannel returns filesystem data", "[cbmdos]") {
 TEST_CASE("CbmDos readChannel on closed channel returns 0", "[cbmdos]") {
     CbmFixture f;
     uint8_t buf[8]{};
-    size_t n = f.dos.readChannel(4, buf, sizeof(buf));
+    size_t n = CbmDos_readChannel(&f.dos, 4, buf, sizeof(buf));
     CHECK(n == 0);
 }
 
 TEST_CASE("CbmDos writeChannel passes data to filesystem", "[cbmdos]") {
     CbmFixture f;
-    f.dos.processCommand(1, "SAVE.SEQ", 8);
+    CbmDos_processCommand(&f.dos, 1, "SAVE.SEQ", 8);
 
     const uint8_t data[] = {0xAA, 0xBB, 0xCC};
-    size_t n = f.dos.writeChannel(1, data, sizeof(data));
+    size_t n = CbmDos_writeChannel(&f.dos, 1, data, sizeof(data));
 
     CHECK(n == 3);
     REQUIRE(f.fs.writtenData.size() == 3);
@@ -151,7 +159,8 @@ TEST_CASE("CbmDos writeChannel passes data to filesystem", "[cbmdos]") {
 TEST_CASE("CbmDos writeChannel to ch 15 executes command", "[cbmdos]") {
     CbmFixture f;
     const char cmd[] = "S:OLD.PRG";
-    f.dos.writeChannel(15, reinterpret_cast<const uint8_t*>(cmd), sizeof(cmd) - 1);
+    CbmDos_writeChannel(&f.dos, 15, reinterpret_cast<const uint8_t*>(cmd),
+                        sizeof(cmd) - 1);
 
     CHECK(f.fs.lastCommand == "S:OLD.PRG");
 }
@@ -160,18 +169,18 @@ TEST_CASE("CbmDos writeChannel to ch 15 executes command", "[cbmdos]") {
 
 TEST_CASE("CbmDos processCommand on ch 15 executes filesystem command", "[cbmdos]") {
     CbmFixture f;
-    f.dos.processCommand(15, "I", 1);  // initialize
+    CbmDos_processCommand(&f.dos, 15, "I", 1);  // initialize
     CHECK(f.fs.lastCommand == "I");
 }
 
 TEST_CASE("CbmDos reset clears all channels", "[cbmdos]") {
     CbmFixture f;
-    f.dos.processCommand(2, "FILE.PRG", 8);
-    f.dos.reset();
+    CbmDos_processCommand(&f.dos, 2, "FILE.PRG", 8);
+    CbmDos_reset(&f.dos);
 
     // After reset, channel 2 should be closed
     uint8_t buf[8]{};
-    size_t n = f.dos.readChannel(2, buf, sizeof(buf));
+    size_t n = CbmDos_readChannel(&f.dos, 2, buf, sizeof(buf));
     CHECK(n == 0);
 }
 
@@ -179,8 +188,8 @@ TEST_CASE("CbmDos reset clears all channels", "[cbmdos]") {
 
 TEST_CASE("CbmDos status string has track and sector fields", "[cbmdos]") {
     CbmFixture f;
-    f.dos.setError(21, "READ ERROR", 18, 3);
-    const char* s = f.dos.getStatus();
+    CbmDos_setError(&f.dos, 21, "READ ERROR", 18, 3);
+    const char* s = CbmDos_getStatus(&f.dos);
     // Expected: "21, READ ERROR,18,03\r"
     CHECK(std::strstr(s, "18") != nullptr);
     CHECK(std::strstr(s, "03") != nullptr);
@@ -188,7 +197,7 @@ TEST_CASE("CbmDos status string has track and sector fields", "[cbmdos]") {
 
 TEST_CASE("CbmDos status string ends with carriage return", "[cbmdos]") {
     CbmFixture f;
-    const char* s = f.dos.getStatus();
+    const char* s = CbmDos_getStatus(&f.dos);
     size_t len = std::strlen(s);
     REQUIRE(len > 0);
     CHECK(s[len - 1] == '\r');

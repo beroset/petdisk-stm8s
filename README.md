@@ -43,20 +43,20 @@ KiCad 7 schematic lives in [`schematic/`](schematic/).  Open `petdisk.kicad_sch`
 ```
 firmware/
 ├── include/        # Platform-independent headers (HAL, IEEE-488, SD card, CBM DOS)
-├── src/            # C++23 implementation + Linux HAL + STM8 HAL
-└── tests/          # Catch2 unit tests
+├── src/            # C11 implementation + Linux HAL (C++) + STM8 HAL (C)
+└── tests/          # Catch2 unit tests (C++)
 ```
 
 ### Modules
 
 | Module | Description |
 |--------|-------------|
-| `hal.hpp` | Abstract `IGpioPin`, `IGpioPort`, `ISpi`, `ITimer` interfaces |
+| `hal.h` | C vtable interfaces: `IGpioPin`, `IGpioPort`, `ISpi`, `ITimer`, `IFilesystem` |
 | `ieee488` | GPIB three-wire handshake, listen/talk addressing, ATN/IFC/EOI |
 | `sdcard`  | SPI SD init (CMD0/CMD8/ACMD41/CMD58), 512-byte block R/W |
 | `cbmdos`  | CBM DOS channels 0–15, command/status, filesystem DI |
 | `hal_linux.cpp` | In-memory HAL for Linux simulation and testing |
-| `hal_stm8.cpp`  | Register-level STM8 HAL (compiled with SDCC only) |
+| `hal_stm8.c`    | Register-level STM8 HAL (compiled with SDCC only) |
 
 ### Building (Linux / GCC ≥ 13)
 
@@ -76,18 +76,22 @@ All 33 test cases (583 assertions) should pass.
 
 ### Cross-compiling for STM8 (SDCC)
 
+The firmware protocol modules (`ieee488.c`, `sdcard.c`, `cbmdos.c`, `petdisk.c`)
+are plain C11 and compile directly with SDCC.  The Linux HAL and Catch2 test
+harness remain in C++ for host-side development and testing.
+
 ```bash
-sdcc -mstm8 --std-c23 -I firmware/include \
-    firmware/src/ieee488.cpp \
-    firmware/src/sdcard.cpp \
-    firmware/src/cbmdos.cpp \
-    firmware/src/hal_stm8.cpp \
-    firmware/src/petdisk.cpp \
-    firmware/src/main.cpp \
+sdcc -mstm8 --std-c11 -I firmware/include \
+    firmware/src/ieee488.c \
+    firmware/src/sdcard.c \
+    firmware/src/cbmdos.c \
+    firmware/src/hal_stm8.c \
+    firmware/src/petdisk.c \
     -o petdisk.ihx
 ```
 
-> **Note:** SDCC C++ support for STM8 is experimental.  The source files use only the subset of C++ features that SDCC handles (no STL, no exceptions, simple virtual dispatch).
+> **Note:** A `main.c` (not included) must instantiate the HAL objects via
+> `stm8_hal_init()` and call `PetDisk_init()` / `PetDisk_begin()` / `PetDisk_run()`.
 
 ## License
 

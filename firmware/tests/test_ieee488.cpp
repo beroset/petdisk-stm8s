@@ -1,7 +1,7 @@
 // IEEE-488 driver unit tests.
 #include "catch_amalgamated.hpp"
 #include "mock_hal.hpp"
-#include "ieee488.hpp"
+#include "ieee488.h"
 
 // Helper: build an Ieee488 instance backed by mock pins
 struct IeeeFixture {
@@ -10,7 +10,7 @@ struct IeeeFixture {
     MockGpioPin  atn, eoi, srq;
     MockGpioPin  ifc, ren;
 
-    Ieee488 bus{dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8};
+    Ieee488 bus{};
 
     IeeeFixture() {
         // Default bus state: ATN released (high), IFC released (high)
@@ -21,13 +21,20 @@ struct IeeeFixture {
         dav.inject(true);
         nrfd.inject(true);
         ndac.inject(true);
-        bus.init();
+
+        Ieee488_init(&bus,
+                     dataBus.port(),
+                     dav.pin(), nrfd.pin(), ndac.pin(),
+                     atn.pin(), eoi.pin(), srq.pin(),
+                     ifc.pin(), ren.pin(),
+                     8);
+        Ieee488_begin(&bus);
     }
 };
 
 TEST_CASE("Ieee488 init configures lines correctly", "[ieee488]") {
     IeeeFixture f;
-    // After init, DAV/NRFD/NDAC/EOI/SRQ should be released (high driven)
+    // After begin, DAV/NRFD/NDAC/EOI/SRQ should be released (high driven)
     CHECK(f.dav.outputState()  == true);
     CHECK(f.nrfd.outputState() == true);
     CHECK(f.ndac.outputState() == true);
@@ -41,64 +48,59 @@ TEST_CASE("Ieee488 init configures lines correctly", "[ieee488]") {
 
 TEST_CASE("Ieee488 SRQ assert and release", "[ieee488]") {
     IeeeFixture f;
-    f.bus.assertSrq();
+    Ieee488_assertSrq(&f.bus);
     CHECK(f.srq.outputState() == false);  // asserted = LOW
-    f.bus.releaseSrq();
+    Ieee488_releaseSrq(&f.bus);
     CHECK(f.srq.outputState() == true);   // released = HIGH
 }
 
 TEST_CASE("Ieee488 isAttnActive reflects ATN pin", "[ieee488]") {
     IeeeFixture f;
     f.atn.inject(true);   // HIGH = not active
-    CHECK_FALSE(f.bus.isAttnActive());
+    CHECK_FALSE(Ieee488_isAttnActive(&f.bus));
     f.atn.inject(false);  // LOW = active
-    CHECK(f.bus.isAttnActive());
+    CHECK(Ieee488_isAttnActive(&f.bus));
 }
 
 TEST_CASE("Ieee488 IFC resets addressed state", "[ieee488]") {
     IeeeFixture f;
-    // Manually set listen active
-    // We do this by calling poll() with ATN + listen address on the bus.
-    // For simplicity, directly test that IFC in poll() clears state.
     // Inject IFC active (LOW)
     f.ifc.inject(false);
-    f.bus.poll();
-    CHECK_FALSE(f.bus.isAddressedToListen());
-    CHECK_FALSE(f.bus.isAddressedToTalk());
+    Ieee488_poll(&f.bus);
+    CHECK_FALSE(Ieee488_isAddressedToListen(&f.bus));
+    CHECK_FALSE(Ieee488_isAddressedToTalk(&f.bus));
 }
 
-// Helper: simulate the talker side of the three-wire handshake so that
-// receiveByte() can complete.
-// Runs in a simple state-machine by inspecting output pin states after each
-// receiveByte step.  Because receiveByte() is blocking we can't easily interleave;
-// instead we pre-configure the mock so that the pin reads produce the right
-// sequence without needing a thread.
-//
-// Strategy: inject DAV=HIGH→LOW→HIGH transitions via a custom read sequence.
-// MockGpioPin::read() returns the injected value, so we must change it between
-// calls.  Since receiveByte() polls in a busy-loop, we need a "countdown"
-// injection.  We extend MockGpioPin with a CountdownPin for this purpose.
+// CountdownPin: provides a sequence of bool reads via the C vtable.
+struct CountdownPin {
+    IGpioPin           iface;   // MUST be first
+    std::vector<bool>  seq;
+    mutable size_t     idx{0};
+    bool               fallback{true};
+    bool               driven{true};
+    bool               isInput_{false};
+    bool               isOD_{false};
 
-struct CountdownPin : public IGpioPin {
-    // Provides a sequence of bool reads
-    std::vector<bool> seq;
-    mutable size_t    idx{0};
-    bool              fallback{true};
-    bool              driven{true};
-    bool              isInput_{false};
-    bool              isOD_{false};
-
-    void setOutput()    override { isInput_ = false; isOD_ = false; }
-    void setInput()     override { isInput_ = true; }
-    void setOpenDrain() override { isInput_ = false; isOD_ = true; }
-    void setHigh()      override { driven = true;  }
-    void setLow()       override { driven = false; }
-    bool read() const   override {
-        if (idx < seq.size()) return seq[idx++];
-        return fallback;
+    CountdownPin() {
+        iface.setOutput    = [](IGpioPin* p) { c(p)->isInput_ = false; c(p)->isOD_ = false; };
+        iface.setInput     = [](IGpioPin* p) { c(p)->isInput_ = true; };
+        iface.setOpenDrain = [](IGpioPin* p) { c(p)->isInput_ = false; c(p)->isOD_ = true; };
+        iface.setHigh      = [](IGpioPin* p) { c(p)->driven = true; };
+        iface.setLow       = [](IGpioPin* p) { c(p)->driven = false; };
+        iface.read         = [](const IGpioPin* p) -> int {
+            const CountdownPin* self = reinterpret_cast<const CountdownPin*>(p);
+            if (self->idx < self->seq.size()) return self->seq[self->idx++] ? 1 : 0;
+            return self->fallback ? 1 : 0;
+        };
     }
-    bool inputMode() const    { return isInput_; }
-    bool outputState() const  { return driven; }
+
+    IGpioPin* pin() { return &iface; }
+
+    bool inputMode()   const { return isInput_; }
+    bool outputState() const { return driven; }
+
+private:
+    static CountdownPin* c(IGpioPin* p) { return reinterpret_cast<CountdownPin*>(p); }
 };
 
 TEST_CASE("Ieee488 receiveByte basic handshake", "[ieee488]") {
@@ -128,14 +130,20 @@ TEST_CASE("Ieee488 receiveByte basic handshake", "[ieee488]") {
     nrfd.inject(true);
     ndac.inject(true);
 
-    Ieee488 bus(dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8);
-    bus.init();
+    Ieee488 bus{};
+    Ieee488_init(&bus,
+                 dataBus.port(),
+                 dav.pin(), nrfd.pin(), ndac.pin(),
+                 atn.pin(), eoi.pin(), srq.pin(),
+                 ifc.pin(), ren.pin(),
+                 8);
+    Ieee488_begin(&bus);
 
-    bool isLast = false;
-    int result = bus.receiveByte(isLast);
+    uint8_t isLast = 0;
+    int result = Ieee488_receiveByte(&bus, &isLast);
 
     CHECK(result == 'A');
-    CHECK_FALSE(isLast);
+    CHECK(isLast == 0);
 }
 
 TEST_CASE("Ieee488 receiveByte sets isLastByte when EOI asserted", "[ieee488]") {
@@ -153,14 +161,20 @@ TEST_CASE("Ieee488 receiveByte sets isLastByte when EOI asserted", "[ieee488]") 
     nrfd.inject(true);
     ndac.inject(true);
 
-    Ieee488 bus(dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8);
-    bus.init();
+    Ieee488 bus{};
+    Ieee488_init(&bus,
+                 dataBus.port(),
+                 dav.pin(), nrfd.pin(), ndac.pin(),
+                 atn.pin(), eoi.pin(), srq.pin(),
+                 ifc.pin(), ren.pin(),
+                 8);
+    Ieee488_begin(&bus);
 
-    bool isLast = false;
-    int result = bus.receiveByte(isLast);
+    uint8_t isLast = 0;
+    int result = Ieee488_receiveByte(&bus, &isLast);
 
     CHECK(result == 'Z');
-    CHECK(isLast == true);
+    CHECK(isLast == 1);
 }
 
 TEST_CASE("Ieee488 receiveByte returns -1 on DAV timeout", "[ieee488]") {
@@ -175,16 +189,17 @@ TEST_CASE("Ieee488 receiveByte returns -1 on DAV timeout", "[ieee488]") {
     nrfd.inject(true);
     ndac.inject(true);
 
-    Ieee488 bus(dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8);
-    bus.init();
+    Ieee488 bus{};
+    Ieee488_init(&bus,
+                 dataBus.port(),
+                 dav.pin(), nrfd.pin(), ndac.pin(),
+                 atn.pin(), eoi.pin(), srq.pin(),
+                 ifc.pin(), ren.pin(),
+                 8);
+    Ieee488_begin(&bus);
 
-    // Reduce timeout by subclassing is awkward; we'll rely on the
-    // default kDefaultTimeout loop completing quickly on a fast host.
-    // This test may be slow but proves the timeout path.
-    // Skip if running in fast mode – use a flag:
-    // (In practice tests run in seconds; kDefaultTimeout=100k loops ≈ fast)
-    bool isLast = false;
-    int result = bus.receiveByte(isLast);
+    uint8_t isLast = 0;
+    int result = Ieee488_receiveByte(&bus, &isLast);
     CHECK(result == -1);
 }
 
@@ -213,15 +228,21 @@ TEST_CASE("Ieee488 sendByte basic handshake", "[ieee488]") {
     atn.inject(true);
     ifc.inject(true);
 
-    Ieee488 bus(dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8);
-    bus.init();
+    Ieee488 bus{};
+    Ieee488_init(&bus,
+                 dataBus.port(),
+                 dav.pin(), nrfd.pin(), ndac.pin(),
+                 atn.pin(), eoi.pin(), srq.pin(),
+                 ifc.pin(), ren.pin(),
+                 8);
+    Ieee488_begin(&bus);
 
-    bool ok = bus.sendByte('B', false);
-    CHECK(ok == true);
+    int ok = Ieee488_sendByte(&bus, 'B', 0);
+    CHECK(ok == 1);
 
-    // Data bus should have received inverted 'B'
-    CHECK(dataBus.outputValue() == 0xFF);  // released after send
-    CHECK(dav.outputState() == true);      // DAV released after send
+    // Data bus should have been released after send (0xFF)
+    CHECK(dataBus.outputValue() == 0xFF);
+    CHECK(dav.outputState() == true);  // DAV released after send
 }
 
 TEST_CASE("Ieee488 data callback is invoked on listen", "[ieee488]") {
@@ -239,29 +260,32 @@ TEST_CASE("Ieee488 data callback is invoked on listen", "[ieee488]") {
     nrfd.inject(true);
     ndac.inject(true);
 
-    Ieee488 bus(dataBus, dav, nrfd, ndac, atn, eoi, srq, ifc, ren, 8);
-    bus.init();
+    Ieee488 bus{};
+    Ieee488_init(&bus,
+                 dataBus.port(),
+                 dav.pin(), nrfd.pin(), ndac.pin(),
+                 atn.pin(), eoi.pin(), srq.pin(),
+                 ifc.pin(), ren.pin(),
+                 8);
+    Ieee488_begin(&bus);
 
-    struct Capture { uint8_t byte; bool eoi; };
+    struct Capture { uint8_t byte; uint8_t eoi; };
     Capture cap{};
-    bus.setDataCallback([](uint8_t b, bool e, void* ctx) {
+    Ieee488_setDataCallback(&bus, [](uint8_t b, uint8_t e, void* ctx) {
         auto* c = static_cast<Capture*>(ctx);
         c->byte = b;
         c->eoi  = e;
     }, &cap);
 
-    // Simulate being addressed as listener first
-    // (Normally done via ATN + handleAttn, but we test the callback path directly.)
-    // Force listenActive by using receiveByte path via poll indirection:
-    // Manually exercise the callback by calling receiveByte with listen state.
-    bool isLast = false;
-    int r = bus.receiveByte(isLast);
-    // Invoke callback manually as poll() would
+    // Exercise the callback path by calling receiveByte directly and
+    // simulating what poll() would do with the listen callback.
+    uint8_t isLast = 0;
+    int r = Ieee488_receiveByte(&bus, &isLast);
     if (r >= 0) {
         cap.byte = static_cast<uint8_t>(r);
         cap.eoi  = isLast;
     }
 
     CHECK(cap.byte == 'X');
-    CHECK_FALSE(cap.eoi);
+    CHECK(cap.eoi == 0);
 }

@@ -1,7 +1,7 @@
 // SD card driver unit tests.
 #include "catch_amalgamated.hpp"
 #include "mock_hal.hpp"
-#include "sdcard.hpp"
+#include "sdcard.h"
 #include <vector>
 
 // In SPI SD protocol, sendCommand() always consumes:
@@ -51,11 +51,12 @@ TEST_CASE("SdCard init succeeds for SDHC card", "[sdcard]") {
     MockTimer timer;
     queueInitSDHC(spi);
 
-    SdCard sd(spi, timer);
-    auto result = sd.init();
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    auto result = SdCard_begin(&sd);
 
-    CHECK(result == SdCard::Result::OK);
-    CHECK(sd.isHighCapacity() == true);
+    CHECK(result == SDCARD_OK);
+    CHECK(SdCard_isHighCapacity(&sd) == 1);
 }
 
 TEST_CASE("SdCard init succeeds for SD v1 card", "[sdcard]") {
@@ -63,11 +64,12 @@ TEST_CASE("SdCard init succeeds for SD v1 card", "[sdcard]") {
     MockTimer timer;
     queueInitSDv1(spi);
 
-    SdCard sd(spi, timer);
-    auto result = sd.init();
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    auto result = SdCard_begin(&sd);
 
-    CHECK(result == SdCard::Result::OK);
-    CHECK(sd.isHighCapacity() == false);
+    CHECK(result == SDCARD_OK);
+    CHECK(SdCard_isHighCapacity(&sd) == 0);
 }
 
 TEST_CASE("SdCard init returns NotPresent if CMD0 fails", "[sdcard]") {
@@ -78,17 +80,19 @@ TEST_CASE("SdCard init returns NotPresent if CMD0 fails", "[sdcard]") {
     // 7 cmd frame + 8 retry bytes, all 0xFF → no valid R1
     for (int i = 0; i < 15; ++i) spi.queueRx(0xFF);
 
-    SdCard sd(spi, timer);
-    auto result = sd.init();
-    CHECK(result == SdCard::Result::NotPresent);
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    auto result = SdCard_begin(&sd);
+    CHECK(result == SDCARD_NOT_PRESENT);
 }
 
 TEST_CASE("SdCard readBlock sends CMD17 and returns data", "[sdcard]") {
     MockSpi   spi;
     MockTimer timer;
     queueInitSDHC(spi);
-    SdCard sd(spi, timer);
-    REQUIRE(sd.init() == SdCard::Result::OK);
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    REQUIRE(SdCard_begin(&sd) == SDCARD_OK);
     spi.reset();
 
     // CMD17: 7 cmd frame + R1=0x00
@@ -102,9 +106,9 @@ TEST_CASE("SdCard readBlock sends CMD17 and returns data", "[sdcard]") {
     spi.queueRx(0xFF);  // CRC byte 2
 
     uint8_t buf[512]{};
-    auto result = sd.readBlock(0, buf);
+    auto result = SdCard_readBlock(&sd, 0, buf);
 
-    CHECK(result == SdCard::Result::OK);
+    CHECK(result == SDCARD_OK);
     for (int i = 0; i < 512; ++i) {
         REQUIRE(buf[i] == static_cast<uint8_t>(i & 0xFF));
     }
@@ -121,8 +125,9 @@ TEST_CASE("SdCard readBlock returns Timeout if no data token", "[sdcard]") {
     MockSpi   spi;
     MockTimer timer;
     queueInitSDHC(spi);
-    SdCard sd(spi, timer);
-    REQUIRE(sd.init() == SdCard::Result::OK);
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    REQUIRE(SdCard_begin(&sd) == SDCARD_OK);
     spi.reset();
 
     // CMD17 R1=OK, but no 0xFE data token – all remaining reads return 0xFF
@@ -130,16 +135,17 @@ TEST_CASE("SdCard readBlock returns Timeout if no data token", "[sdcard]") {
     // No 0xFE in queue → MockSpi default returns 0xFF → waitToken times out
 
     uint8_t buf[512]{};
-    auto result = sd.readBlock(0, buf);
-    CHECK(result == SdCard::Result::Timeout);
+    auto result = SdCard_readBlock(&sd, 0, buf);
+    CHECK(result == SDCARD_TIMEOUT);
 }
 
 TEST_CASE("SdCard writeBlock sends CMD24 and data", "[sdcard]") {
     MockSpi   spi;
     MockTimer timer;
     queueInitSDHC(spi);
-    SdCard sd(spi, timer);
-    REQUIRE(sd.init() == SdCard::Result::OK);
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    REQUIRE(SdCard_begin(&sd) == SDCARD_OK);
     spi.reset();
 
     // CMD24 R1 = 0x00
@@ -159,9 +165,9 @@ TEST_CASE("SdCard writeBlock sends CMD24 and data", "[sdcard]") {
 
     uint8_t buf[512];
     for (int i = 0; i < 512; ++i) buf[i] = static_cast<uint8_t>(i & 0xFF);
-    auto result = sd.writeBlock(1, buf);
+    auto result = SdCard_writeBlock(&sd, 1, buf);
 
-    CHECK(result == SdCard::Result::OK);
+    CHECK(result == SDCARD_OK);
 
     // CMD24 = 0x58
     bool foundCmd24 = false;
@@ -175,9 +181,10 @@ TEST_CASE("SdCard SDHC uses block addressing in CMD17", "[sdcard]") {
     MockSpi   spi;
     MockTimer timer;
     queueInitSDHC(spi);
-    SdCard sd(spi, timer);
-    REQUIRE(sd.init() == SdCard::Result::OK);
-    REQUIRE(sd.isHighCapacity());
+    SdCard sd{};
+    SdCard_init(&sd, spi.spi(), timer.timer());
+    REQUIRE(SdCard_begin(&sd) == SDCARD_OK);
+    REQUIRE(SdCard_isHighCapacity(&sd) == 1);
     spi.reset();
 
     queueCmd(spi, 0x00);
@@ -187,7 +194,7 @@ TEST_CASE("SdCard SDHC uses block addressing in CMD17", "[sdcard]") {
     spi.queueRx(0xFF); spi.queueRx(0xFF);
 
     uint8_t buf[512]{};
-    sd.readBlock(5, buf);
+    SdCard_readBlock(&sd, 5, buf);
 
     // Find CMD17 (0x51) in tx log and check address bytes = 0x00000005
     for (size_t i = 0; i + 4 < spi.txLog.size(); ++i) {
@@ -201,4 +208,3 @@ TEST_CASE("SdCard SDHC uses block addressing in CMD17", "[sdcard]") {
         }
     }
 }
-

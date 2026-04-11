@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
-# ── Platform-independent library ─────────────────────────────────────────────
+# ── Platform-independent C library ───────────────────────────────────────────
 add_library(petdisk_lib STATIC
-    src/ieee488.cpp
-    src/sdcard.cpp
-    src/cbmdos.cpp
-    src/petdisk.cpp
+    src/ieee488.c
+    src/sdcard.c
+    src/cbmdos.c
+    src/petdisk.c
 )
 target_include_directories(petdisk_lib PUBLIC include)
 target_compile_options(petdisk_lib PRIVATE -Wall -Wextra -Wpedantic)
