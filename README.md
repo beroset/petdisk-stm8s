@@ -77,21 +77,29 @@ All 33 test cases (583 assertions) should pass.
 ### Cross-compiling for STM8 (SDCC)
 
 The firmware protocol modules (`ieee488.c`, `sdcard.c`, `cbmdos.c`, `petdisk.c`)
-are plain C11 and compile directly with SDCC.  The Linux HAL and Catch2 test
-harness remain in C++ for host-side development and testing.
+are plain C11 and compile with SDCC.  The Linux HAL and Catch2 test harness
+remain in C++ for host-side development and testing.
+
+SDCC cannot link multiple source files in a single invocation (it raises
+_warning 120_ and silently ignores the extra files).  Each source file must
+be compiled to a `.rel` object separately, then linked with a second SDCC call.
+The provided `Makefile` handles this automatically:
 
 ```bash
-sdcc -mstm8 --std-c11 -I firmware/include \
-    firmware/src/ieee488.c \
-    firmware/src/sdcard.c \
-    firmware/src/cbmdos.c \
-    firmware/src/hal_stm8.c \
-    firmware/src/petdisk.c \
-    -o petdisk.ihx
+make              # produces petdisk.ihx in the current directory
+make clean        # remove build artefacts
 ```
 
-> **Note:** A `main.c` (not included) must instantiate the HAL objects via
-> `stm8_hal_init()` and call `PetDisk_init()` / `PetDisk_begin()` / `PetDisk_run()`.
+The Makefile defaults to `sdcc-sdcc` (the Fedora 43 package name).
+Override `CC` on the command line if needed:
+
+```bash
+make CC=sdcc      # use plain sdcc
+```
+
+The STM8 entry point is `firmware/src/main_stm8.c`.  It includes a minimal
+stub `IFilesystem` (returns FILE NOT FOUND for every operation) which should
+be replaced with a real FAT filesystem driver once available.
 
 ## License
 
