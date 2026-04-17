@@ -9,13 +9,11 @@
     (comment 1 "STM8S105K6T6C + microSD + IEEE-488")
   )
 
-  ;; ─── Net labels ───────────────────────────────────────────────────────────
   (global_label (at 50 50 0) (shape input) (fields_autoplaced)
     (effects (font (size 1.27 1.27))) (uuid "nl-5v") (property "Value" "+5V"))
   (global_label (at 50 55 0) (shape input) (fields_autoplaced)
     (effects (font (size 1.27 1.27))) (uuid "nl-gnd") (property "Value" "GND"))
 
-  ;; ─── U1: STM8S105K6T6C ────────────────────────────────────────────────────
   (symbol (lib_id "MCU_ST_STM8S:STM8S105K6Tx") (at 120 100 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid "u1-stm8")
@@ -23,7 +21,6 @@
     (property "Value"     "STM8S105K6T6C" (at 120 78 0) (effects (font (size 1.27 1.27))))
     (property "Footprint" "Package_QFP:LQFP-32_7x7mm_P0.8mm" (at 120 76 0)
       (effects (font (size 1.27 1.27)) (hide yes)))
-    ;; Port B – IEEE-488 Data Bus DIO1-DIO8
     (pin "PB0" (at 100 90 0)  (uuid "u1-pb0"))
     (pin "PB1" (at 100 92 0)  (uuid "u1-pb1"))
     (pin "PB2" (at 100 94 0)  (uuid "u1-pb2"))
@@ -32,7 +29,6 @@
     (pin "PB5" (at 100 100 0) (uuid "u1-pb5"))
     (pin "PB6" (at 100 102 0) (uuid "u1-pb6"))
     (pin "PB7" (at 100 104 0) (uuid "u1-pb7"))
-    ;; Port D – IEEE-488 handshake/control
     (pin "PD0" (at 100 108 0) (uuid "u1-pd0"))
     (pin "PD1" (at 100 110 0) (uuid "u1-pd1"))
     (pin "PD2" (at 100 112 0) (uuid "u1-pd2"))
@@ -41,19 +37,15 @@
     (pin "PD5" (at 100 118 0) (uuid "u1-pd5"))
     (pin "PD6" (at 100 120 0) (uuid "u1-pd6"))
     (pin "PD7" (at 100 122 0) (uuid "u1-pd7"))
-    ;; Port C – SPI
     (pin "PC5" (at 140 108 180) (uuid "u1-pc5"))
     (pin "PC6" (at 140 110 180) (uuid "u1-pc6"))
     (pin "PC7" (at 140 112 180) (uuid "u1-pc7"))
-    ;; Port A
     (pin "PA3" (at 140 116 180) (uuid "u1-pa3"))
-    ;; Power
     (pin "VDD"  (at 120 82 270)  (uuid "u1-vdd"))
     (pin "VSS"  (at 120 122 90)  (uuid "u1-vss"))
     (pin "NRST" (at 140 90 180)  (uuid "u1-nrst"))
   )
 
-  ;; Net label wires – Port B data bus
   (wire (pts (xy 100 90)  (xy 88 90))  (uuid "w-pb0"))
   (wire (pts (xy 100 92)  (xy 88 92))  (uuid "w-pb1"))
   (wire (pts (xy 100 94)  (xy 88 94))  (uuid "w-pb2"))
@@ -72,7 +64,6 @@
   (net_label (at 88 102 0) (fields_autoplaced) (uuid "lbl-dio7") (property "Value" "DIO7"))
   (net_label (at 88 104 0) (fields_autoplaced) (uuid "lbl-dio8") (property "Value" "DIO8"))
 
-  ;; Port D wires
   (wire (pts (xy 100 108) (xy 88 108)) (uuid "w-pd0"))
   (wire (pts (xy 100 110) (xy 88 110)) (uuid "w-pd1"))
   (wire (pts (xy 100 112) (xy 88 112)) (uuid "w-pd2"))
@@ -91,7 +82,6 @@
   (net_label (at 88 120 0) (uuid "lbl-ifc")  (property "Value" "IFC"))
   (net_label (at 88 122 0) (uuid "lbl-ren")  (property "Value" "REN"))
 
-  ;; ─── J1: IEEE-488 Connector ───────────────────────────────────────────────
   (symbol (lib_id "Connector:Conn_02x12_Odd_Even") (at 60 100 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid "j1-gpib")
@@ -125,7 +115,6 @@
     (pin "24" (at 45 112 0)   (uuid "j1-p24"))
   )
 
-  ;; J1 net labels (standard GPIB pinout)
   (net_label (at 75 90  180) (uuid "jl-dio1") (property "Value" "DIO1"))
   (net_label (at 75 92  180) (uuid "jl-dio2") (property "Value" "DIO2"))
   (net_label (at 75 94  180) (uuid "jl-dio3") (property "Value" "DIO3"))
@@ -143,7 +132,6 @@
   (net_label (at 45 94  0)   (uuid "jl-dio7") (property "Value" "DIO7"))
   (net_label (at 45 96  0)   (uuid "jl-dio8") (property "Value" "DIO8"))
 
-  ;; GND pins 18-24
   (power_symbol (at 45 100 0) (uuid "j1-gnd18") (property "Value" "GND"))
   (power_symbol (at 45 102 0) (uuid "j1-gnd19") (property "Value" "GND"))
   (power_symbol (at 45 104 0) (uuid "j1-gnd20") (property "Value" "GND"))
@@ -152,8 +140,6 @@
   (power_symbol (at 45 110 0) (uuid "j1-gnd23") (property "Value" "GND"))
   (power_symbol (at 45 112 0) (uuid "j1-gnd24") (property "Value" "GND"))
 
-  ;; ─── Voltage dividers (R1-R6) ─────────────────────────────────────────────
-  ;; SCK: PC5 → R1(1k) → SD_SCK → R2(2k) → GND
   (symbol (lib_id "Device:R") (at 155 108 90) (unit 1)
     (in_bom yes) (on_board yes) (uuid "r1")
     (property "Reference" "R1" (at 155 106 0) (effects (font (size 1.27 1.27))))
@@ -172,7 +158,6 @@
   (net_label (at 158 108 0)   (uuid "lbl-sck-sd")   (property "Value" "SD_SCK"))
   (power_symbol (at 166 108 270) (uuid "r2-gnd")    (property "Value" "GND"))
 
-  ;; MOSI: PC6 → R3(1k) → SD_MOSI → R4(2k) → GND
   (symbol (lib_id "Device:R") (at 155 112 90) (unit 1)
     (in_bom yes) (on_board yes) (uuid "r3")
     (property "Reference" "R3" (at 155 110 0) (effects (font (size 1.27 1.27))))
@@ -191,7 +176,6 @@
   (net_label (at 158 112 0)   (uuid "lbl-mosi-sd")  (property "Value" "SD_MOSI"))
   (power_symbol (at 166 112 270) (uuid "r4-gnd")    (property "Value" "GND"))
 
-  ;; CS: PA3 → R5(1k) → SD_CS → R6(2k) → GND
   (symbol (lib_id "Device:R") (at 155 116 90) (unit 1)
     (in_bom yes) (on_board yes) (uuid "r5")
     (property "Reference" "R5" (at 155 114 0) (effects (font (size 1.27 1.27))))
@@ -210,7 +194,6 @@
   (net_label (at 158 116 0)   (uuid "lbl-cs-sd")   (property "Value" "SD_CS"))
   (power_symbol (at 166 116 270) (uuid "r6-gnd")   (property "Value" "GND"))
 
-  ;; ─── J2: Micro SD card connector ─────────────────────────────────────────
   (symbol (lib_id "Connector:Conn_01x07") (at 185 108 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid "j2-sd")
@@ -235,7 +218,6 @@
   (net_label (at 140 112 0) (uuid "u1-miso-lbl") (property "Value" "SD_MISO"))
   (net_label (at 180 116 180) (uuid "j2l-miso") (property "Value" "SD_MISO"))
 
-  ;; ─── U2: AMS1117-3.3 LDO ─────────────────────────────────────────────────
   (symbol (lib_id "Regulator_Linear:AMS1117-3.3") (at 185 90 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid "u2-ldo")
@@ -251,7 +233,6 @@
   (net_label    (at 192 90 0)   (uuid "u2-3v3")  (property "Value" "VCC_3V3"))
   (power_symbol (at 185 97 270) (uuid "u2-gnds") (property "Value" "GND"))
 
-  ;; ─── J3: PET Tape connector (power in) ────────────────────────────────────
   (symbol (lib_id "Connector:Conn_01x05") (at 30 90 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid "j3-tape")
@@ -268,7 +249,6 @@
   (power_symbol (at 35 88 0)  (uuid "j3-gnd-sym") (property "Value" "GND"))
   (power_symbol (at 35 96 0)  (uuid "j3-5v-sym")  (property "Value" "+5V"))
 
-  ;; ─── C1-C3: 100nF bypass caps on VDD ─────────────────────────────────────
   (symbol (lib_id "Device:C") (at 125 82 0) (unit 1)
     (in_bom yes) (on_board yes) (uuid "c1")
     (property "Reference" "C1" (at 128 81 0) (effects (font (size 1.27 1.27))))
@@ -299,7 +279,6 @@
   (power_symbol (at 135 78 90)  (uuid "c3-5v")  (property "Value" "+5V"))
   (power_symbol (at 135 86 270) (uuid "c3-gnd") (property "Value" "GND"))
 
-  ;; ─── C4: 10µF bulk cap ────────────────────────────────────────────────────
   (symbol (lib_id "Device:CP") (at 140 82 0) (unit 1)
     (in_bom yes) (on_board yes) (uuid "c4")
     (property "Reference" "C4" (at 143 81 0) (effects (font (size 1.27 1.27))))
