@@ -39,13 +39,13 @@ unsigned char __sdcc_external_startup(void) {
 }
 #endif 
 
-#define USING_TIMER_INTERRUPT 0
+#define USING_TIMER_INTERRUPT 1
 #if USING_TIMER_INTERRUPT
 void timer2_isr(void) __interrupt(13) 
 {
     PC_ODR ^= LED_PIN;
     // clear IT pending bit
-    TIM2_SR1 &= ~0x01; // clear interrupt
+    TIM2_SR1 = 0; // clear interrupt
 }
 #endif
 
@@ -65,12 +65,12 @@ void main(void)
 {
     CLK_DIVR = 0x18; // Set the frequency to 2 MHz
 #if USING_TIMER_INTERRUPT
-    enableInterrupts();
-    TIM2_PSCR = 0b00000111;  // prescaler = 128
+    TIM2_PSCR = 0b00000111;  // prescaler = 128; T=64us
     TIM2_ARRH = reload_value >> 8;
     TIM2_ARRL = reload_value & 0x00ff;
     TIM2_IER = 0x01;  // update interrupt enable
     TIM2_CR1 = 0x01;
+    enableInterrupts();
 #else
     // Configure timer
     // 1000 ticks per second
@@ -80,7 +80,7 @@ void main(void)
 
     PC_DDR = LED_PIN;
     PC_CR1 = LED_PIN;
-    PC_CR2 = ~LED_PIN;
+    PC_CR2 = 0;
     // Enable timer
 #if USING_TIMER_INTERRUPT
 
