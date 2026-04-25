@@ -16,9 +16,9 @@ unsigned char __sdcc_external_startup(void) {
 void timer2_isr(void) __interrupt(TIM2_OVF_ISR)
 {
     // clear IT pending bit
-    TIM2_SR1 &= ~1;
+    BITCLR(TIM2_SR1, 0);
     // toggle LED
-    PC_ODR ^= (1u << LEDBIT);
+    BITFLIP(PC_ODR, LEDBIT);
 }
 
 static void init()
@@ -43,7 +43,6 @@ static void init()
     PD_DDR = 1u << CLOCKBIT;
     PD_CR1 = 1u << CLOCKBIT;
     PD_ODR = 1u << CLOCKBIT;
-
 }
 
 void main(void)
@@ -52,7 +51,7 @@ void main(void)
     enableInterrupts();
     for (;;) {
         delay_ms(3);  // wait 3ms
-        PD_ODR ^= (1 << CLOCKBIT); // toggle pin
+        BITFLIP(PD_ODR, CLOCKBIT); // toggle pin
         waitForInterrupt();
     }
 }

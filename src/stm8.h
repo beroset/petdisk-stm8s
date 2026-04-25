@@ -300,10 +300,6 @@ __at(PI_BASE + Px_DDR) volatile uint8_t PI_DDR;
 __at(PI_BASE + Px_CR1) volatile uint8_t PI_CR1;
 __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 
-#define enableInterrupts()    {__asm__("rim");}  /* enable interrupts */
-#define disableInterrupts()   {__asm__("sim");}  /* disable interrupts */
-#define waitForInterrupt()    {__asm__("wfi");}  /* wait for interrupt */
-
 /* Interrupts */
 #define TLI_ISR                 0
 #define AWU_ISR                 1
@@ -330,5 +326,13 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 #define ADC1_ISR                22
 #define TIM4_ISR                23
 #define FLASH_ISR               24
+
+#define enableInterrupts()    __asm__("rim");  /* enable interrupts */
+#define disableInterrupts()   __asm__("sim");  /* disable interrupts */
+#define waitForInterrupt()    __asm__("wfi");  /* wait for interrupt */
+
+#define BITSET(port, bit) port |= (1u << bit)
+#define BITCLR(port, bit) port &= ~(1u << bit)
+#define BITFLIP(port, bit) port ^= (1u << bit)
 
 #endif // STM8_H

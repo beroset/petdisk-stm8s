@@ -7,7 +7,7 @@ static volatile uint32_t ticks = 0;
 void timer3_isr(void) __interrupt(TIM3_OVF_ISR)
 {
     // clear IT pending bit
-    TIM3_SR1 &= ~1;
+    BITCLR(TIM3_SR1, 0);
     ++ticks;
 }
 
