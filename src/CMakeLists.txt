@@ -1,6 +1,7 @@
 set(SRCS
   main.c
   timer1ms.c
+  display.c
 )
 
 add_executable(main ${SRCS})
