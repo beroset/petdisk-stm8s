@@ -45,10 +45,22 @@ static void init()
     PD_ODR = 1u << CLOCKBIT;
 }
 
+static const char* hex = "0123456789ABCDEF";
+
 void main(void)
 {
     init();
     enableInterrupts();
+    display_reset();
+    display_print(" Hello\nPETski!");
+    delay_ms(2000);
+    uint8_t addr = display_readaddr();
+    display_clear();
+    char msg[] = "00 ";
+    msg[0] = hex[(addr >> 4) & 0x0f];
+    msg[1] = hex[addr & 0x0f];
+    display_print(msg);
+
     for (;;) {
         delay_ms(3);  // wait 3ms
         BITFLIP(PD_ODR, CLOCKBIT); // toggle pin
