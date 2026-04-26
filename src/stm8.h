@@ -335,4 +335,30 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 #define BITCLR(port, bit) port &= ~(1u << bit)
 #define BITFLIP(port, bit) port ^= (1u << bit)
 
+/*
+ * This bit of macro magic is for portable single-bit GPIO operations.
+ *
+ * For example, we can have this:
+ * #define RS_PORT D
+ * #define RS_BIT 0
+ * and then write the following:
+ *   OUT(RS);
+ *   CCR1(RS);
+ *   CCR2(RS);
+ *   CLR(RS);
+ */
+#define CAT3(a,b,c) a##b##c
+#define EXPAND_CAT3(a,b,c) CAT3(a,b,c)
+#define PORT_DIR_REG(name) EXPAND_CAT3(P, name##_PORT, _DDR)
+#define PORT_OUT_REG(name) EXPAND_CAT3(P, name##_PORT, _ODR)
+#define PORT_CR1_REG(name) EXPAND_CAT3(P, name##_PORT, _CR1)
+#define PORT_CR2_REG(name) EXPAND_CAT3(P, name##_PORT, _CR2)
+#define OUT(name) ( PORT_DIR_REG(name) |= (1u << (name##_BIT)) )
+#define SCR1(name) ( PORT_CR1_REG(name) |= (1u << (name##_BIT)) )
+#define SCR2(name) ( PORT_CR2_REG(name) |= (1u << (name##_BIT)) )
+#define CCR1(name) ( PORT_CR1_REG(name) &= ~(1u << (name##_BIT)) )
+#define CCR2(name) ( PORT_CR2_REG(name) &= ~(1u << (name##_BIT)) )
+#define SET(name) ( PORT_OUT_REG(name) |= (1u << (name##_BIT)) )
+#define CLR(name) ( PORT_OUT_REG(name) &= ~(1u << (name##_BIT)) )
+
 #endif // STM8_H
