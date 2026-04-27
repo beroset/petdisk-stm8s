@@ -1,5 +1,5 @@
-# petdisk
-Interfacing the Commodore PET to a microSD card via the IEEE-488 bus.
+# petdisk-stm8s
+Interfacing the Commodore PET to a microSD card via the IEEE-488 bus using the STM8S microcontroller.
 
 ## Prerequisites
 You must have `CMake`, the `sdcc` compiler (version 4.4 or newer) and [`stm8flash`](https://github.com/vdudouyt/stm8flash) to flash the result into the target hardware.
