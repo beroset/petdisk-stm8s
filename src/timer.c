@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "timer1ms.h"
+#include "timer.h"
 #include "stm8.h"
 
 static volatile uint32_t ticks = 0;
@@ -11,7 +11,7 @@ void timer3_isr(void) __interrupt(TIM3_OVF_ISR)
     ++ticks;
 }
 
-void timer1ms_init()
+void timer_init()
 {
     const uint16_t tim3_reload_value = 125;
 

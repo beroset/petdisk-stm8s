@@ -1,6 +1,6 @@
 // display.c
 #include "display.h"
-#include "timer1ms.h"
+#include "timer.h"
 #include "stm8.h"
 
 /* pin definitions

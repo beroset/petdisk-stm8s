@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "stm8.h"
 #include "display.h"
-#include "timer1ms.h"
+#include "timer.h"
 
 #define LEDBIT 5
 #define CLOCKBIT 7
@@ -32,7 +32,7 @@ static void init()
     TIM2_IER = 0x01;  // update interrupt enable
     TIM2_CR1 = 0x01;  // enable timer
 
-    timer1ms_init();
+    timer_init();
 
     // set up LED output
     PC_DDR = 1u << LEDBIT;

@@ -1,6 +1,6 @@
 set(SRCS
   main.c
-  timer1ms.c
+  timer.c
   display.c
 )
 
