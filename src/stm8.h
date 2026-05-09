@@ -360,5 +360,6 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 #define CCR2(name) ( PORT_CR2_REG(name) &= ~(1u << (name##_BIT)) )
 #define SET(name) ( PORT_OUT_REG(name) |= (1u << (name##_BIT)) )
 #define CLR(name) ( PORT_OUT_REG(name) &= ~(1u << (name##_BIT)) )
+#define FLIP(name) ( PORT_OUT_REG(name) ^= (1u << (name##_BIT)) )
 
 #endif // STM8_H
