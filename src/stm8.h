@@ -354,6 +354,7 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 #define PORT_CR1_REG(name) EXPAND_CAT3(P, name##_PORT, _CR1)
 #define PORT_CR2_REG(name) EXPAND_CAT3(P, name##_PORT, _CR2)
 #define OUT(name) ( PORT_DIR_REG(name) |= (1u << (name##_BIT)) )
+#define IN(name) ( PORT_DIR_REG(name) &= ~(1u << (name##_BIT)) )
 #define SCR1(name) ( PORT_CR1_REG(name) |= (1u << (name##_BIT)) )
 #define SCR2(name) ( PORT_CR2_REG(name) |= (1u << (name##_BIT)) )
 #define CCR1(name) ( PORT_CR1_REG(name) &= ~(1u << (name##_BIT)) )
