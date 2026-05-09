@@ -4,8 +4,10 @@
 #include "display.h"
 #include "timer.h"
 
-#define LEDBIT 5
-#define CLOCKBIT 7
+#define LED_PORT C
+#define LED_BIT 5
+#define CLOCK_PORT D
+#define CLOCK_BIT 7
 
 #if 0
 unsigned char __sdcc_external_startup(void) {
@@ -18,7 +20,7 @@ void timer2_isr(void) __interrupt(TIM2_OVF_ISR)
     // clear IT pending bit
     BITCLR(TIM2_SR1, 0);
     // toggle LED
-    BITFLIP(PC_ODR, LEDBIT);
+    FLIP(LED);
 }
 
 static void init()
@@ -35,14 +37,14 @@ static void init()
     timer_init();
 
     // set up LED output
-    PC_DDR = 1u << LEDBIT;
-    PC_CR1 = 1u << LEDBIT;
-    PC_CR2 = 0;
+    OUT(LED);
+    SCR1(LED);
+    CCR2(LED);
 
     // set PD7 also as output
-    PD_DDR = 1u << CLOCKBIT;
-    PD_CR1 = 1u << CLOCKBIT;
-    PD_ODR = 1u << CLOCKBIT;
+    OUT(CLOCK);
+    SCR1(CLOCK);
+    SET(CLOCK);
 }
 
 static const char* hex = "0123456789ABCDEF";
@@ -63,7 +65,7 @@ void main(void)
 
     for (;;) {
         delay_ms(3);  // wait 3ms
-        BITFLIP(PD_ODR, CLOCKBIT); // toggle pin
+        FLIP(CLOCK); // toggle pin
         waitForInterrupt();
     }
 }
