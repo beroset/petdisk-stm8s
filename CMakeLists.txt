@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(petdisk C)
+project(petdisk-stm8 C)
 
 SET(CMAKE_C_FLAGS "-mstm8")
 
