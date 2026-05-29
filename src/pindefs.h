@@ -15,44 +15,78 @@
 
 */
 
-#define RS_PORT D
-#define RS_BIT 0
+#define RS_PORT C
+#define RS_BIT 1
 #define RW_PORT C
-#define RW_BIT 1
-#define EN_PORT D
-#define EN_BIT 2
-
-#define LED_PORT C
-#define LED_BIT 5
-#define CLOCK_PORT D
-#define CLOCK_BIT 7
+#define RW_BIT 2
+#define EN_PORT C
+#define EN_BIT 3
+#define DISPLAY_NYBBLE_PORT B
+#define DISPLAY_NYBBLE_MASK 0x0f
+#define DISPLAY_NYBBLE_SHIFT 0
 
 /*
- * I have a SPI module that is 5V compatible and has both a 
- * level converter and a 5V to 3.3V converter.  These are
- * the connections to the ST8S development board.
+ * PB0 to PB3 are LCD DB4-DB7
+ */
+
+/*
+ * LED
+ */
+#define LED_PORT E
+#define LED_BIT 5
+
+/*
+ * SPI module
  *
- * Module  |  Devboard  | CPU
- * --------|------------|--------
- *   CS    |  D10       | PE5
- *   SCL   |  D13       | PC5
- *   MOSI  |  D11       | PC6
- *   MISO  |  D12       | PC7
- *   VCC   |  +5V       | +5V
- *   GND   |  GND       | GND
+ * Module  |  CPU
+ * --------|--------
+ *   CS    |  PC4
+ *   SCL   |  PC5
+ *   MOSI  |  PC6
+ *   MISO  |  PC7
+ *   VCC   |  VDD
+ *   GND   |  VSS
  *
- * Note that the CS pin assignment can be changed, but the 
+ * Note that the CS pin assignment can be changed, but the
  * three other SPI pins are fixed.
  */
 
-#define CS_PORT E
-#define CS_BIT 5
+#define CS_PORT C
+#define CS_BIT 4
 #define SCL_PORT C
 #define SCL_BIT 5
 #define MOSI_PORT C
 #define MOSI_BIT 6
 #define MISO_PORT C
 #define MISO_BIT 7
+
+/*
+ * IEEE-488 bus
+ */
+// PD0-PD7 => DIO1-DIO8
+/*
+ *  IEEE-488 |  CPU
+ * ----------|--------
+ *   DAV     |  PA1
+ *   NRFD    |  PA2
+ *   NDAC    |  PF4
+ *   ATN     |  PB5
+ *   EOI     |  PB4
+ *
+ *   Unused: SRQ, IFC, REN
+ */
+
+#define DAV_PORT  A
+#define DAV_BIT   1
+#define NRFD_PORT A
+#define NRFD_BI   2
+#define NDAC_PORT F
+#define NDAC_BIT  4
+#define ATN_PORT  B
+#define ATN_BIT   5
+#define EOI_PORT  B
+#define EOI_BIT   4
+
 
 #endif // PINDEFS_H
 
