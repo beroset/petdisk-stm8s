@@ -10,7 +10,7 @@ static void write_half(uint8_t value)
     // write high bits to data lines
     PB_ODR = (PB_ODR & 0xf0) | (value & 0x0f);
     SET(EN);
-    delay_us(1);
+    __asm__("nop"); // delay_us(1);
     CLR(EN);
     delay_us(50);
 }
@@ -19,10 +19,10 @@ static uint8_t read_half()
 {
     uint8_t data;
     SET(EN);
-    delay_us(1);
+    __asm__("nop"); // delay_us(1);
     data = PB_IDR & 0x0f;
     CLR(EN);
-    delay_us(1);
+    // delay_us(1);
     return data;
 }
 
