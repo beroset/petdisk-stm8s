@@ -21,9 +21,9 @@
 #define RW_BIT 2
 #define EN_PORT C
 #define EN_BIT 3
-#define DISPLAY_NYBBLE_PORT B
-#define DISPLAY_NYBBLE_MASK 0x0f
-#define DISPLAY_NYBBLE_SHIFT 0
+#define DISPLAY_SPAN_PORT B
+#define DISPLAY_SPAN_MASK 0x0f
+#define DISPLAY_SPAN_SHIFT 0
 
 /*
  * PB0 to PB3 are LCD DB4-DB7
@@ -63,7 +63,6 @@
 /*
  * IEEE-488 bus
  */
-// PD0-PD7 => DIO1-DIO8
 /*
  *  IEEE-488 |  CPU
  * ----------|--------
@@ -86,6 +85,11 @@
 #define ATN_BIT   5
 #define EOI_PORT  B
 #define EOI_BIT   4
+
+// PD0-PD7 => DIO1-DIO8
+#define GPIB_SPAN_PORT D
+#define GPIB_SPAN_MASK 0xff
+#define GPIB_SPAN_SHIFT 0
 
 
 #endif // PINDEFS_H

@@ -8,7 +8,7 @@ static void write_half(uint8_t value)
 {
     CLR(RW);
     // write high bits to data lines
-    PB_ODR = (PB_ODR & 0xf0) | (value & 0x0f);
+    WRITE_SPAN(DISPLAY, value);
     SET(EN);
     __asm__("nop"); // delay_us(1);
     CLR(EN);
@@ -20,7 +20,7 @@ static uint8_t read_half()
     uint8_t data;
     SET(EN);
     __asm__("nop"); // delay_us(1);
-    data = PB_IDR & 0x0f;
+    data = READ_SPAN(DISPLAY);
     CLR(EN);
     // delay_us(1);
     return data;
@@ -30,11 +30,11 @@ uint8_t display_readaddr()
 {
     CLR(RS); // read register
     SET(RW); // change to read mode
-    PB_DDR &= ~(0x0f); // input data
+    IN_SPAN(DISPLAY); // set direction to input data
     // read status nybbles
     uint8_t valhi = read_half() << 4;
     uint8_t vallo = read_half();
-    PB_DDR |= 0x0f; // change back to output data
+    OUT_SPAN(DISPLAY); // change back to output data
     CLR(RW); // and write
     return valhi | vallo;
 }
@@ -75,12 +75,12 @@ void display_clear()
     write_reg(0x01);
 }
 
-void display_cursor(uint8_t loc) 
+void display_cursor(uint8_t loc)
 {
     write_reg(0x80 | loc);
 }
 
-void display_print(const char *msg) 
+void display_print(const char *msg)
 {
     display_cursor(0x00);
     for ( ; *msg; ++msg) {
@@ -106,7 +106,7 @@ void display_reset()
     SCR1(EN);
     CCR2(EN);
     CLR(EN);
-    PB_DDR |= 0x0f; // data lines are outputs
+    OUT_SPAN(DISPLAY);
     delay_ms(40);
 
     CLR(RS);
