@@ -64,14 +64,15 @@
  * IEEE-488 bus
  */
 /*
- *  IEEE-488 |  CPU
- * ----------|--------
- *   DAV     |  PA1
- *   NRFD    |  PA2
- *   NDAC    |  PF4
- *   ATN     |  PB5
- *   EOI     |  PB4
+ *  IEEE-488 |  CPU  | color
+ * ----------|-------|------
+ *   DAV     |  PA1  | BRN
+ *   NRFD    |  PA2  | RED
+ *   NDAC    |  PF4  | ORG
+ *   ATN     |  PB5  | YEL
+ *   EOI     |  PB4  | WHT
  *
+ * GND - BLK
  *   Unused: SRQ, IFC, REN
  */
 
