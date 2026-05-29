@@ -351,6 +351,7 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 #define EXPAND_CAT3(a,b,c) CAT3(a,b,c)
 #define PORT_DIR_REG(name) EXPAND_CAT3(P, name##_PORT, _DDR)
 #define PORT_OUT_REG(name) EXPAND_CAT3(P, name##_PORT, _ODR)
+#define PORT_IN_REG(name) EXPAND_CAT3(P, name##_PORT, _IDR)
 #define PORT_CR1_REG(name) EXPAND_CAT3(P, name##_PORT, _CR1)
 #define PORT_CR2_REG(name) EXPAND_CAT3(P, name##_PORT, _CR2)
 #define OUT(name) ( PORT_DIR_REG(name) |= (1u << (name##_BIT)) )
@@ -362,5 +363,33 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
 #define SET(name) ( PORT_OUT_REG(name) |= (1u << (name##_BIT)) )
 #define CLR(name) ( PORT_OUT_REG(name) &= ~(1u << (name##_BIT)) )
 #define FLIP(name) ( PORT_OUT_REG(name) ^= (1u << (name##_BIT)) )
+#define READ(name) ( PORT_IN_REG(name) & (1u << (name##_BIT)) )
+
+/*
+ * These are for spans of bits on a single port.  For example, 
+ * if there is a 4-bit quantity associated with a display, we 
+ * could define these to use PB1 through PB4:
+ *
+ * #define DISPLAY_SPAN_PORT B
+ * #define DISPLAY_SPAN_MASK 0x1e
+ * #define DISPLAY_SPAN_SHIFT 1
+ *
+ * Then we can conveniently set up and read the port:
+ * IN_SPAN(DISPLAY);
+ * uint8_t data = READ_SPAN(DISPLAY);
+ *
+ */
+#define READ_SPAN(name) ( EXPAND_CAT3(P, name##_SPAN_PORT, _IDR) & \
+    EXPAND_CAT3(name, _SPAN, _MASK) ) >> \
+    EXPAND_CAT3(name, _SPAN, _SHIFT)
+#define WRITE_SPAN(name, value) EXPAND_CAT3(P, name##_SPAN_PORT, _ODR) = \
+    ( EXPAND_CAT3(P, name##_SPAN_PORT, _ODR) & \
+    ~(EXPAND_CAT3(name, _SPAN, _MASK) )) | \
+    ( (value << EXPAND_CAT3(name, _SPAN, _SHIFT)) & \
+    EXPAND_CAT3(name, _SPAN, _MASK))
+#define OUT_SPAN(name) EXPAND_CAT3(P, name##_SPAN_PORT, _DDR) |= \
+    EXPAND_CAT3(name, _SPAN, _MASK)
+#define IN_SPAN(name) EXPAND_CAT3(P, name##_SPAN_PORT, _DDR) &= \
+    ~(EXPAND_CAT3(name, _SPAN, _MASK))
 
 #endif // STM8_H
