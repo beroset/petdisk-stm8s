@@ -2,27 +2,7 @@
 #include "display.h"
 #include "timer.h"
 #include "stm8.h"
-
-/* pin definitions
-
-    Display | STM8
-    --------|-------
-    RS      | PD0
-    RW      | PC1
-    EN      | PD2
-    D4      | PB0
-    D5      | PB1
-    D6      | PB2
-    D7      | PB3
-
-*/
-
-#define RS_PORT D
-#define RS_BIT 0
-#define RW_PORT C
-#define RW_BIT 1
-#define EN_PORT D
-#define EN_BIT 2
+#include "pindefs.h"
 
 static void write_half(uint8_t value)
 {

@@ -3,11 +3,7 @@
 #include "stm8.h"
 #include "display.h"
 #include "timer.h"
-
-#define LED_PORT C
-#define LED_BIT 5
-#define CLOCK_PORT D
-#define CLOCK_BIT 7
+#include "pindefs.h"
 
 #if 0
 unsigned char __sdcc_external_startup(void) {
