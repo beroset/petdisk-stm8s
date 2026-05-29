@@ -36,11 +36,6 @@ static void init()
     OUT(LED);
     SCR1(LED);
     CCR2(LED);
-
-    // set PD7 also as output
-    OUT(CLOCK);
-    SCR1(CLOCK);
-    SET(CLOCK);
 }
 
 static const char* hex = "0123456789ABCDEF";
@@ -60,8 +55,6 @@ void main(void)
     display_print(msg);
 
     for (;;) {
-        delay_ms(3);  // wait 3ms
-        FLIP(CLOCK); // toggle pin
         waitForInterrupt();
     }
 }
