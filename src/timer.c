@@ -28,10 +28,3 @@ void delay_ms(unsigned ms)
         waitForInterrupt();
     }
 }
-
-void delay_us(unsigned us)
-{
-    static const unsigned nop_delay = 2;
-    for (unsigned i = us * nop_delay; i; --i)
-        __asm__("nop");
-}
