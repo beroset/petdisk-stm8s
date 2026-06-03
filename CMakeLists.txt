@@ -2,11 +2,21 @@ cmake_minimum_required(VERSION 3.31)
 project(petdisk-stm8 C)
 
 SET(CMAKE_C_FLAGS "-mstm8")
+option(DEVBOARD "Define this if using a NUCLEO-8S207K8 board" OFF)
+if (DEVBOARD)
+    set(STLINKVER "stlinkv21" CACHE STRING "ST-Link version")
+    set_property(CACHE STLINKVER PROPERTY STRINGS stlink stlinkv2 stlinkv21 stlinkv3 espstlink)
+    set(PROCESSOR "stm8s207k8")
+else()
+    set(STLINKVER "stlinkv2" CACHE STRING "ST-Link version")
+    set_property(CACHE STLINKVER PROPERTY STRINGS stlink stlinkv2 stlinkv21 stlinkv3 espstlink)
+    set(PROCESSOR "stm8s105k6")
+endif()
 
 add_subdirectory(src)
 
 add_custom_target(flash
-  COMMAND stm8flash -c stlinkv2 -p stm8s207k8 -w "$<TARGET_FILE_DIR:main>/$<TARGET_FILE_BASE_NAME:main>.ihx"
+  COMMAND stm8flash -c ${STLINKVER} -p ${PROCESSOR} -w "$<TARGET_FILE_DIR:main>/$<TARGET_FILE_BASE_NAME:main>.ihx"
   DEPENDS main
   COMMENT "Flashing $<TARGET_FILE_BASE_NAME:main>.ihx"
 )

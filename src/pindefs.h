@@ -30,22 +30,16 @@
  */
 
 /*
- * LED
- */
-#define LED_PORT E
-#define LED_BIT 5
-
-/*
  * SPI module
  *
- * Module  |  CPU
- * --------|--------
- *   CS    |  PC4
- *   SCL   |  PC5
- *   MOSI  |  PC6
- *   MISO  |  PC7
- *   VCC   |  VDD
- *   GND   |  VSS
+ * Module  |  CPU  | color
+ * --------|-------|------
+ *   CS    |  PC4  | BLU
+ *   SCL   |  PC5  | GRN
+ *   MOSI  |  PC6  | YEL
+ *   MISO  |  PC7  | ORG
+ *   VCC   |  VDD  | RED
+ *   GND   |  VSS  | BRN
  *
  * Note that the CS pin assignment can be changed, but the
  * three other SPI pins are fixed.
@@ -59,6 +53,21 @@
 #define MOSI_BIT 6
 #define MISO_PORT C
 #define MISO_BIT 7
+
+#if (DEVBOARD == 1)
+
+/*
+ * LED
+ */
+#define LED_PORT C
+#define LED_BIT 5
+#else
+
+/*
+ * LED
+ */
+#define LED_PORT E
+#define LED_BIT 5
 
 /*
  * IEEE-488 bus
@@ -92,7 +101,7 @@
 #define GPIB_SPAN_MASK 0xff
 #define GPIB_SPAN_SHIFT 0
 
-
+#endif // DEVBOARD
 #endif // PINDEFS_H
 
 
