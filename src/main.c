@@ -3,6 +3,7 @@
 #include "stm8.h"
 #include "display.h"
 #include "timer.h"
+#include "SDCard.h"
 #include "pindefs.h"
 
 #if 0
@@ -36,6 +37,12 @@ static void init()
     OUT(LED);
     SCR1(LED);
     CCR2(LED);
+
+    // because SDCard init requires interrupts, enable them now
+    enableInterrupts();
+
+    // initialize SDCard 
+    SDCard_init();
 }
 
 static const char* hex = "0123456789ABCDEF";
@@ -43,7 +50,6 @@ static const char* hex = "0123456789ABCDEF";
 void main(void)
 {
     init();
-    enableInterrupts();
     display_reset();
     display_print(" Hello\nPETski!");
     delay_ms(2000);
