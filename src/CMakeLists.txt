@@ -3,6 +3,7 @@ set(SRCS
   timer.c
   display.c
   spi.c
+  SDCard.c
 )
 
 add_executable(main ${SRCS})
