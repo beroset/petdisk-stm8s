@@ -9,5 +9,7 @@ set(SRCS
 add_executable(main ${SRCS})
 
 target_compile_options(main PRIVATE --opt-code-size --std=c23)
-target_compile_definitions(main PRIVATE "DEVBOARD=${DEVBOARD}")
+if (DEVBOARD)
+    target_compile_definitions(main PRIVATE DEVBOARD=1)
+endif()
 

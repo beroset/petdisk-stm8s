@@ -54,14 +54,19 @@
 #define MISO_PORT C
 #define MISO_BIT 7
 
-#if (DEVBOARD == 1)
-
+#ifdef DEVBOARD
+#warning "LED is defined as PD7"
+/*
+ * Note that because the on-board LED is on C5 which is also the SCL,
+ * we can't use it.
+ */
 /*
  * LED
  */
-#define LED_PORT C
-#define LED_BIT 5
+#define LED_PORT D
+#define LED_BIT 7
 #else
+#warning "DEVBOARD is NOT defined"
 
 /*
  * LED
