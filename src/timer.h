@@ -4,6 +4,7 @@
 
 void timer_init();
 void delay_ms(unsigned ms);
+int32_t now_ms();
 /*
  * delay for microseconds 
  * should be in increments of 50us to be accurate

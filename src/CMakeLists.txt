@@ -4,6 +4,7 @@ set(SRCS
   display.c
   spi.c
   SDCard.c
+  uart.c
 )
 
 add_executable(main ${SRCS})
