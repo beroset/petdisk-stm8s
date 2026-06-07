@@ -4,7 +4,6 @@
 #include "display.h"
 #include "timer.h"
 #include "uart.h"
-#include "SDCard.h"
 #include "pindefs.h"
 
 #if 0
@@ -40,12 +39,6 @@ static void init()
     CCR2(LED);
 
     uart_init();
-
-    // because SDCard init requires interrupts, enable them now
-    enableInterrupts();
-
-    // initialize SDCard 
-    SDCard_init();
 }
 
 static void reset_on_halt()
@@ -58,6 +51,7 @@ static const char* hex = "0123456789ABCDEF";
 void main(void)
 {
     init();
+    enableInterrupts();
     display_reset();
     display_print(" Hello\nPETski!");
     puts(" Hello\nPETski!");

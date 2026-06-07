@@ -3,7 +3,6 @@ set(SRCS
   timer.c
   display.c
   spi.c
-  SDCard.c
   uart.c
 )
 
