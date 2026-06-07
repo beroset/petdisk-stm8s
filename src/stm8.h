@@ -94,18 +94,18 @@ __at(0x5238) volatile uint8_t UART1_CR5; //  UART1 control register 5 (reset: 0x
 __at(0x5239) volatile uint8_t UART1_GTR; //  UART1 guard time register (reset: 0x00)
 __at(0x523A) volatile uint8_t UART1_PSCR; //  UART1 prescaler register (reset: 0x00)
 
-// this is called UART2 for STM8S105x4/6
-// UART3
-__at(0x5240) volatile uint8_t UART3_SR; //  UART3 status register (reset: 0xC0)
-__at(0x5241) volatile uint8_t UART3_DR; //  UART3 data register (reset: 0xXX)
-__at(0x5242) volatile uint8_t UART3_BRR1; //  UART3 baud rate register 1 (reset: 0x00)
-__at(0x5243) volatile uint8_t UART3_BRR2; //  UART3 baud rate register 2 (reset: 0x00)
-__at(0x5244) volatile uint8_t UART3_CR1; //  UART3 control register 1 (reset: 0x00)
-__at(0x5245) volatile uint8_t UART3_CR2; //  UART3 control register 2 (reset: 0x00)
-__at(0x5246) volatile uint8_t UART3_CR3; //  UART3 control register 3 (reset: 0x00)
-__at(0x5247) volatile uint8_t UART3_CR4; //  UART3 control register 4 (reset: 0x00)
+// this is called UART3 for STM8S207xx
+// UART2
+__at(0x5240) volatile uint8_t UART2_SR; //  UART2 status register (reset: 0xC0)
+__at(0x5241) volatile uint8_t UART2_DR; //  UART2 data register (reset: 0xXX)
+__at(0x5242) volatile uint8_t UART2_BRR1; //  UART2 baud rate register 1 (reset: 0x00)
+__at(0x5243) volatile uint8_t UART2_BRR2; //  UART2 baud rate register 2 (reset: 0x00)
+__at(0x5244) volatile uint8_t UART2_CR1; //  UART2 control register 1 (reset: 0x00)
+__at(0x5245) volatile uint8_t UART2_CR2; //  UART2 control register 2 (reset: 0x00)
+__at(0x5246) volatile uint8_t UART2_CR3; //  UART2 control register 3 (reset: 0x00)
+__at(0x5247) volatile uint8_t UART2_CR4; //  UART2 control register 4 (reset: 0x00)
 // 0x5248 reserved
-__at(0x5249) volatile uint8_t UART3_CR6; //  UART3 control register 6 (reset: 0x00)
+__at(0x5249) volatile uint8_t UART2_CR6; //  UART2 control register 6 (reset: 0x00)
 
 // TIM1
 __at(0x5250) volatile uint8_t TIM1_CR1; //  TIM1 control register 1 (reset: 0x00)
