@@ -3,6 +3,7 @@
 #include "stm8.h"
 #include "display.h"
 #include "timer.h"
+#include "uart.h"
 #include "SDCard.h"
 #include "pindefs.h"
 
@@ -38,11 +39,18 @@ static void init()
     SCR1(LED);
     CCR2(LED);
 
+    uart_init();
+
     // because SDCard init requires interrupts, enable them now
     enableInterrupts();
 
     // initialize SDCard 
     SDCard_init();
+}
+
+static void reset_on_halt()
+{
+    WWDG_CR = 0x80;
 }
 
 static const char* hex = "0123456789ABCDEF";
@@ -52,6 +60,7 @@ void main(void)
     init();
     display_reset();
     display_print(" Hello\nPETski!");
+    puts(" Hello\nPETski!");
     delay_ms(2000);
     uint8_t addr = display_readaddr();
     display_clear();
@@ -61,6 +70,16 @@ void main(void)
     display_print(msg);
 
     for (;;) {
+        int command = getchar();
+        switch (command) {
+            case 'r':
+                puts("Resetting now...\n");
+                delay_ms(1000);
+                reset_on_halt();
+                break;
+            default:
+                // do nothing
+        }
         waitForInterrupt();
     }
 }
