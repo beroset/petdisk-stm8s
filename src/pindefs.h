@@ -1,6 +1,8 @@
 #ifndef PINDEFS_H
 #define PINDEFS_H
 
+#define MASTER_FREQ 2000000
+
 /* pin definitions
 
     Display | STM8
@@ -55,7 +57,7 @@
 #define MISO_BIT 7
 
 #ifdef DEVBOARD
-#warning "LED is defined as PD7"
+//#warning "LED is defined as PD7, not on-board LED"
 /*
  * Note that because the on-board LED is on C5 which is also the SCL,
  * we can't use it.
@@ -66,7 +68,7 @@
 #define LED_PORT D
 #define LED_BIT 7
 #else
-#warning "DEVBOARD is NOT defined"
+//#warning "DEVBOARD is NOT defined"
 
 /*
  * LED
