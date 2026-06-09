@@ -2,6 +2,7 @@
 /* Low level disk I/O module for stm8s for Petit FatFs                   */
 /*-----------------------------------------------------------------------*/
 
+#include <stdio.h>
 #include "stm8.h"
 #include "pindefs.h"
 #include "timer.h"
@@ -14,12 +15,12 @@
 
 #define	INIT_PORT()	SPI_init()	/* Initialize MMC control port (CS/CLK/DI:output, DO:input) */
 #define DLY_US(n)	delay_us(n)	/* Delay n microseconds */
-#define	FORWARD(d)	forward(d)	/* Data in-time processing function (depends on the project) */
+#define	FORWARD(d)	oops(d)        	/* Data in-time processing function (depends on the project) */
 #define xmit_mmc(d)     SPI_write(d)   
 #define rcvr_mmc()      SPI_read()
 
 #define	CS_H()		chip_deselect()
-#define CS_L()		chip_select();
+#define CS_L()		chip_select()
 
 
 /*--------------------------------------------------------------------------
@@ -57,16 +58,9 @@ BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 /* Skip bytes on the MMC (bitbanging)                                    */
 /*-----------------------------------------------------------------------*/
 
-static
-void skip_mmc (
-	UINT n		/* Number of bytes to skip */
-)
-{
-	do {
-            SPI_write(0xff);
-	} while (--n);
+static void skip_mmc (UINT n) {
+    while (n--) SPI_read();
 }
-
 
 
 /*-----------------------------------------------------------------------*/
@@ -92,6 +86,7 @@ BYTE send_cmd (
 )
 {
     BYTE n, res;
+    //printf("send_cmd CMD%d, %08lx, ", (cmd & 0x3f), arg);
 
 
     if (cmd & 0x80) {	/* ACMD<n> is the command sequense of CMD55-CMD<n> */
@@ -113,6 +108,7 @@ BYTE send_cmd (
     n = 0x01;						/* Dummy CRC + Stop */
     if (cmd == CMD0) n = 0x95;		/* Valid CRC for CMD0(0) */
     if (cmd == CMD8) n = 0x87;		/* Valid CRC for CMD8(0x1AA) */
+    //printf("crc: %02x, ", n);
     xmit_mmc(n);
 
     /* Receive a command response */
@@ -120,11 +116,24 @@ BYTE send_cmd (
     do {
         res = rcvr_mmc();
     } while ((res & 0x80) && --n);
-
+    //printf("result: %02x\n", res);
     return res;			/* Return with the response value */
 }
 
+static void readR7(BYTE* buf) {
+    BYTE n;
+#if DEBUG
+    printf("R7 = ");
+    for (n = 0; n < 4; n++) printf("%02x", buf[n] = rcvr_mmc());	/* Get trailing return value of R7 resp */
+    putchar('\n');
+#else
+    for (n = 0; n < 4; n++) buf[n] = rcvr_mmc();	/* Get trailing return value of R7 resp */
+#endif
+}
 
+static void oops(BYTE ch) {
+    printf("Oops!  dropping %02x\n", ch);
+}
 
 /*--------------------------------------------------------------------------
 
@@ -139,7 +148,7 @@ BYTE send_cmd (
 
 DSTATUS disk_initialize (void)
 {
-    BYTE n, cmd, ty, buf[4];
+    BYTE cmd, ty, buf[4];
     UINT tmr;
 
 
@@ -150,14 +159,14 @@ DSTATUS disk_initialize (void)
     ty = 0;
     if (send_cmd(CMD0, 0) == 1) {			/* Enter Idle state */
         if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDv2 */
-            for (n = 0; n < 4; n++) buf[n] = rcvr_mmc();	/* Get trailing return value of R7 resp */
+            readR7(buf);
             if (buf[2] == 0x01 && buf[3] == 0xAA) {			/* The card can work at vdd range of 2.7-3.6V */
                 for (tmr = 1000; tmr; tmr--) {				/* Wait for leaving idle state (ACMD41 with HCS bit) */
-                    if (send_cmd(ACMD41, DWORD(1UL) << 30) == 0) break;
+                    if (send_cmd(ACMD41, 1UL << 30) == 0) break;
                     DLY_US(1000);
                 }
                 if (tmr && send_cmd(CMD58, 0) == 0) {		/* Check CCS bit in the OCR */
-                    for (n = 0; n < 4; n++) buf[n] = rcvr_mmc();
+                    readR7(buf);
                     ty = (buf[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;	/* SDv2 (HC or SC) */
                 }
             }
@@ -227,8 +236,7 @@ DRESULT disk_readp (
                     FORWARD(d);
                 } while (--count);
             }
-
-            /* Skip trailing bytes and CRC */
+            //putchar('\n');
             skip_mmc(bc);
 
             res = RES_OK;
@@ -245,7 +253,7 @@ DRESULT disk_readp (
 /*-----------------------------------------------------------------------*/
 /* Write partial sector                                                  */
 /*-----------------------------------------------------------------------*/
-#if _USE_WRITE
+#if PF_USE_WRITE
 
 DRESULT disk_writep (
         const BYTE *buff,	/* Pointer to the bytes to be written (NULL:Initiate/Finalize sector write) */
@@ -289,6 +297,4 @@ DRESULT disk_writep (
     return res;
 }
 #endif
-    return res;
-}
 
