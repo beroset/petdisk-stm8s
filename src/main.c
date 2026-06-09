@@ -58,6 +58,14 @@ void die (		/* Stop with dying message */
 {
 	printf("Failed with rc=%u.\n", rc);
 }
+void fatprint(FATFS *fat)
+{
+    printf("fs_type %d\n", fat->fs_type);
+    printf("flag %x\n", fat->flag);
+    printf("csize %d\n", fat->csize);
+    printf("fatbase %ld\n", fat->fatbase);
+    printf("dirbase %ld\n", fat->dirbase);
+}
 
 void main(void)
 {
@@ -68,6 +76,7 @@ void main(void)
     puts(" Hello\nPETski!");
     FRESULT rc;
 
+    disableInterrupts();
     // disk things
     FATFS fatfs;			/* File system object */
     DIR dir;				/* Directory object */
@@ -78,6 +87,7 @@ void main(void)
     printf("\nMount a volume.\n");
     rc = pf_mount(&fatfs);
     if (rc) die(rc);
+    fatprint(&fatfs);
 
     if (!rc) {
         printf("\nOpen a test file (message.txt).\n");
