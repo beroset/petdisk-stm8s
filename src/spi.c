@@ -30,7 +30,7 @@ void SPI_init()
     SCR1(CS);
     SET(CS);
     // set up SPI mode
-    SPI_CR1 = (1u << SPE) | (1u << BR0) | (1u << MSTR);
+    SPI_CR1 = (1u << SPE) | (1u << BR1) | (1u << MSTR);
     SPI_CR2 = (0u << SSM) | (1u << SSI);
 }
 
