@@ -363,6 +363,11 @@
 #define	DIR_FstClusLO		26
 #define	DIR_FileSize		28
 
+/* Special first-byte values for directory entries */
+#define	DIR_DELETED		0xE5	/* Entry is deleted/free (slot may be reused) */
+#define	DIR_END			0x00	/* End-of-directory marker (all following slots are free) */
+#define	DIR_ESCAPED		0x05	/* Real first char is 0xE5 (stored as 0x05 to avoid confusion) */
+
 
 
 
@@ -1385,6 +1390,15 @@ FRESULT pf_readdir (
 /*-----------------------------------------------------------------------*/
 /* Create or Open a File for Writing                                     */
 /*-----------------------------------------------------------------------*/
+/* Create or Open a File for Writing                                     */
+/*-----------------------------------------------------------------------*/
+/* Limitations:
+ *  - Only creates files in the root directory; subdirectory paths are not
+ *    supported for new-file creation (existing files at any depth can be
+ *    opened and truncated via the follow_path call).
+ *  - When truncating an existing file that already has allocated clusters,
+ *    those clusters are orphaned in the FAT (not freed).  A full
+ *    implementation would walk and free the old chain before writing. */
 #if PF_USE_WRITE
 
 FRESULT pf_create (
@@ -1405,10 +1419,8 @@ FRESULT pf_create (
     res = follow_path(&dj, dir, path);	/* Follow the file path */
 
     if (res == FR_OK) {
-        /* File found – open it for writing (truncate to zero length) */
+        /* File found – truncate and open for writing */
         if (!dir[0] || (dir[DIR_Attr] & AM_DIR)) return FR_NO_FILE;
-        /* Note: any existing cluster chain is orphaned (clusters not freed).
-         * A full implementation would walk and free the old chain here. */
         fs->org_clust = 0;
         fs->fsize = 0;
         fs->fptr = 0;
@@ -1421,29 +1433,29 @@ FRESULT pf_create (
 
     if (res != FR_NO_FILE) return res;	/* Unexpected error */
 
-    /* File not found – create a new directory entry.
+    /* File not found – create a new directory entry in the root directory.
      * dj.fn (= sp) already holds the 8.3 SFN built by follow_path. */
-    dj.sclust = 0;						/* Always create in the root directory */
+    dj.sclust = 0;
     res = dir_rewind(&dj);
     if (res != FR_OK) return res;
 
-    /* Scan root directory for a free slot (end-of-dir 0x00 or deleted 0xE5) */
+    /* Scan root directory for a free slot (DIR_END or DIR_DELETED) */
     for (;;) {
         if (!dj.sect) { res = FR_NO_FILE; break; }
         res = disk_readp(dir, dj.sect, (dj.index % 16) * 32, 32)
             ? FR_DISK_ERR : FR_OK;
         if (res != FR_OK) break;
-        if (dir[0] == 0x00 || dir[0] == 0xE5) { res = FR_OK; break; }
+        if (dir[0] == DIR_END || dir[0] == DIR_DELETED) { res = FR_OK; break; }
         res = dir_next(&dj);
         if (res != FR_OK) break;
     }
     if (res != FR_OK) return res;
 
-    /* Build the 32-byte directory entry in dir[] */
+    /* Build the 32-byte directory entry */
     mem_set(dir, 0, 32);
     mem_cpy(dir, sp, 11);				/* Copy the 8.3 SFN */
-    if (dir[0] == 0xE5) dir[0] = 0x05;	/* Escape 0xE5 as 0x05 */
-    dir[DIR_Attr] = 0x20;				/* Archive attribute */
+    if (dir[0] == DIR_DELETED) dir[0] = DIR_ESCAPED;	/* Escape 0xE5 filename start */
+    dir[DIR_Attr] = AM_ARC;				/* Archive attribute */
     /* All other fields (time, date, cluster, size) remain zero */
 
     /* Write the new entry via read-modify-write on the directory sector */
