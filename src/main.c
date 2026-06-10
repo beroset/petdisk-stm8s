@@ -19,7 +19,7 @@ void timer2_isr(void) __interrupt(TIM2_OVF_ISR)
     // clear IT pending bit
     BITCLR(TIM2_SR1, 0);
     // toggle LED
-//    FLIP(LED);
+    FLIP(LED);
 }
 
 static void init()
@@ -36,9 +36,9 @@ static void init()
     timer_init();
 
     // set up LED output
-//    OUT(LED);
-//    SCR1(LED);
-//    CCR2(LED);
+    OUT(LED);
+    SCR1(LED);
+    CCR2(LED);
 
     uart_init();
 }
