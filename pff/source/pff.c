@@ -410,6 +410,13 @@ static void mem_set (void* dst, int val, int cnt) {
     while (cnt--) *d++ = (char)val;
 }
 
+/* Copy memory block */
+static void mem_cpy (void* dst, const void* src, int cnt) {
+    char *d = (char*)dst;
+    const char *s = (const char*)src;
+    while (cnt--) *d++ = *s++;
+}
+
 /* Compare memory block */
 static int mem_cmp (const void* dst, const void* src, int cnt) {
     const char *d = (const char *)dst, *s = (const char *)src;
@@ -911,6 +918,10 @@ FRESULT pf_open (
     fs->fsize = ld_dword(dir+DIR_FileSize);	/* File size */
     fs->fptr = 0;						/* File pointer */
     fs->flag = FA_OPENED;
+#if PF_USE_WRITE
+    fs->dirsect = dj.sect;				/* Save directory entry location for write support */
+    fs->dirindex = (BYTE)(dj.index % 16);
+#endif
 
     return FR_OK;
 }
@@ -980,6 +991,185 @@ FRESULT pf_read (
 /*-----------------------------------------------------------------------*/
 #if PF_USE_WRITE
 
+/* Sector buffer for FAT and directory read-modify-write operations.
+ * This buffer occupies 512 bytes of RAM when PF_USE_WRITE is enabled. */
+static BYTE wbuf[512];
+
+/* Store a 16-bit little-endian value into a byte buffer */
+static void st_word (BYTE* ptr, WORD val) {
+    ptr[0] = (BYTE)val;
+    ptr[1] = (BYTE)(val >> 8);
+}
+
+/* Store a 32-bit little-endian value into a byte buffer */
+static void st_dword (BYTE* ptr, DWORD val) {
+    ptr[0] = (BYTE)val;
+    ptr[1] = (BYTE)(val >> 8);
+    ptr[2] = (BYTE)(val >> 16);
+    ptr[3] = (BYTE)(val >> 24);
+}
+
+/* Write a full 512-byte sector from wbuf to disk */
+static DRESULT write_sector (DWORD sect) {
+    if (disk_writep(0, sect)) return RES_ERROR;
+    if (disk_writep(wbuf, 512)) return RES_ERROR;
+    if (disk_writep(0, 0)) return RES_ERROR;
+    return RES_OK;
+}
+
+/* Write a FAT entry (read-modify-write via wbuf) */
+static FRESULT put_fat (CLUST clst, CLUST val) {
+    DWORD fsect;
+    FATFS *fs = FatFs;
+    UINT off;
+
+    if (clst < 2 || clst >= fs->n_fatent) return FR_DISK_ERR;
+
+    switch (fs->fs_type) {
+#if PF_FS_FAT12
+    case FS_FAT12: {
+        UINT bc = (UINT)clst;
+        bc += bc / 2;           /* byte offset in FAT */
+        fsect = fs->fatbase + bc / 512;
+        off = bc % 512;
+        if (disk_readp(wbuf, fsect, 0, 512)) return FR_DISK_ERR;
+        if (clst & 1) {
+            /* Odd cluster: low nibble of byte[off] belongs to prev entry */
+            wbuf[off] = (wbuf[off] & 0x0F) | (BYTE)((val & 0x0F) << 4);
+            off++;
+            if (off == 512) {
+                /* Entry spans a sector boundary */
+                if (write_sector(fsect)) return FR_DISK_ERR;
+                fsect++;
+                if (disk_readp(wbuf, fsect, 0, 512)) return FR_DISK_ERR;
+                off = 0;
+            }
+            wbuf[off] = (BYTE)(val >> 4);
+        } else {
+            /* Even cluster: high nibble of byte[off+1] belongs to next entry */
+            wbuf[off] = (BYTE)val;
+            off++;
+            if (off == 512) {
+                if (write_sector(fsect)) return FR_DISK_ERR;
+                fsect++;
+                if (disk_readp(wbuf, fsect, 0, 512)) return FR_DISK_ERR;
+                off = 0;
+            }
+            wbuf[off] = (wbuf[off] & 0xF0) | (BYTE)((val >> 8) & 0x0F);
+        }
+        return write_sector(fsect) ? FR_DISK_ERR : FR_OK;
+    }
+#endif
+#if PF_FS_FAT16
+    case FS_FAT16:
+        fsect = fs->fatbase + clst / 256;
+        off = (UINT)(clst % 256) * 2;
+        if (disk_readp(wbuf, fsect, 0, 512)) return FR_DISK_ERR;
+        st_word(wbuf + off, (WORD)val);
+        return write_sector(fsect) ? FR_DISK_ERR : FR_OK;
+#endif
+#if PF_FS_FAT32
+    case FS_FAT32:
+        fsect = fs->fatbase + clst / 128;
+        off = (UINT)(clst % 128) * 4;
+        if (disk_readp(wbuf, fsect, 0, 512)) return FR_DISK_ERR;
+        /* Preserve the top 4 reserved bits of the FAT32 entry */
+        st_dword(wbuf + off, (ld_dword(wbuf + off) & 0xF0000000UL) | (val & 0x0FFFFFFFUL));
+        return write_sector(fsect) ? FR_DISK_ERR : FR_OK;
+#endif
+    }
+    return FR_DISK_ERR;
+}
+
+/* Scan the FAT for a free cluster (entry value == 0), starting from cluster 2.
+ * Returns the cluster number on success, 0 on failure (disk full or error). */
+static CLUST find_free_cluster (void) {
+    CLUST clst;
+    UINT i;
+    DWORD sect;
+    FATFS *fs = FatFs;
+
+#if PF_FS_FAT12
+    if (fs->fs_type == FS_FAT12) {
+        for (clst = 2; clst < fs->n_fatent; clst++) {
+            if (get_fat(clst) == 0) return clst;
+        }
+        return 0;
+    }
+#endif
+#if PF_FS_FAT16
+    if (fs->fs_type == FS_FAT16) {
+        for (clst = 2; clst < fs->n_fatent; ) {
+            sect = fs->fatbase + clst / 256;
+            if (disk_readp(wbuf, sect, 0, 512)) return 0;
+            for (i = (UINT)(clst % 256); i < 256 && clst < fs->n_fatent; i++, clst++) {
+                if (ld_word(wbuf + i * 2) == 0) return clst;
+            }
+        }
+        return 0;
+    }
+#endif
+#if PF_FS_FAT32
+    if (fs->fs_type == FS_FAT32) {
+        for (clst = 2; clst < fs->n_fatent; ) {
+            sect = fs->fatbase + clst / 128;
+            if (disk_readp(wbuf, sect, 0, 512)) return 0;
+            for (i = (UINT)(clst % 128); i < 128 && clst < fs->n_fatent; i++, clst++) {
+                if ((ld_dword(wbuf + i * 4) & 0x0FFFFFFFUL) == 0) return clst;
+            }
+        }
+        return 0;
+    }
+#endif
+    return 0;
+}
+
+/* Allocate a free cluster, mark it EOF in the FAT, and link it to prev (if prev >= 2).
+ * Returns the new cluster number on success, 0 on failure (disk full or error). */
+static CLUST alloc_cluster (CLUST prev) {
+    CLUST clst, eof_mark;
+    FATFS *fs = FatFs;
+
+    clst = find_free_cluster();
+    if (!clst) return 0;
+
+    switch (fs->fs_type) {
+#if PF_FS_FAT12
+    case FS_FAT12: eof_mark = 0xFFF; break;
+#endif
+#if PF_FS_FAT16
+    case FS_FAT16: eof_mark = 0xFFFF; break;
+#endif
+#if PF_FS_FAT32
+    case FS_FAT32: eof_mark = 0x0FFFFFFF; break;
+#endif
+    default: return 0;
+    }
+
+    if (put_fat(clst, eof_mark) != FR_OK) return 0;
+    if (prev >= 2 && put_fat(prev, clst) != FR_OK) return 0;
+
+    return clst;
+}
+
+/* Update the file's directory entry on disk with the current fsize and org_clust.
+ * Used after writing to commit the new file size (and first cluster if newly allocated). */
+static FRESULT update_dirent (void) {
+    FATFS *fs = FatFs;
+    UINT diroff;
+
+    if (disk_readp(wbuf, fs->dirsect, 0, 512)) return FR_DISK_ERR;
+    diroff = (UINT)fs->dirindex * 32;
+    st_dword(wbuf + diroff + DIR_FileSize, fs->fsize);
+    st_word(wbuf + diroff + DIR_FstClusLO, (WORD)fs->org_clust);
+    st_word(wbuf + diroff + DIR_FstClusHI,
+#if PF_FS_FAT32
+        (fs->fs_type == FS_FAT32) ? (WORD)(fs->org_clust >> 16) :
+#endif
+        0);
+    return write_sector(fs->dirsect) ? FR_DISK_ERR : FR_OK;
+}
+
 FRESULT pf_write (
     const void* buff,	/* Pointer to the data to be written */
     UINT btw,			/* Number of bytes to write (0:Finalize the current write operation) */
@@ -1001,14 +1191,19 @@ FRESULT pf_write (
     if (!btw) {		/* Finalize request */
         if ((fs->flag & FA__WIP) && disk_writep(0, 0)) ABORT(FR_DISK_ERR);
         fs->flag &= ~FA__WIP;
+        if (fs->flag & FA_WRITE) {		/* Commit size and first cluster to directory entry */
+            if (update_dirent() != FR_OK) ABORT(FR_DISK_ERR);
+        }
         return FR_OK;
     } else {		/* Write data request */
         if (!(fs->flag & FA__WIP)) {	/* Round-down fptr to the sector boundary */
             fs->fptr &= 0xFFFFFE00;
         }
     }
-    remain = fs->fsize - fs->fptr;
-    if (btw > remain) btw = (UINT)remain;			/* Truncate btw by remaining bytes */
+    if (!(fs->flag & FA_WRITE)) {
+        remain = fs->fsize - fs->fptr;
+        if (btw > remain) btw = (UINT)remain;	/* Truncate btw by remaining bytes */
+    }
 
     while (btw)	{									/* Repeat until all data transferred */
         if ((UINT)fs->fptr % 512 == 0) {			/* On the sector boundary? */
@@ -1016,8 +1211,19 @@ FRESULT pf_write (
             if (!cs) {								/* On the cluster boundary? */
                 if (fs->fptr == 0) {				/* On the top of the file? */
                     clst = fs->org_clust;
+                    if ((fs->flag & FA_WRITE) && !clst) {
+                        /* No clusters yet – allocate the first one */
+                        clst = alloc_cluster(0);
+                        if (!clst) break;			/* Disk full */
+                        fs->org_clust = clst;
+                    }
                 } else {
                     clst = get_fat(fs->curr_clust);
+                    if ((fs->flag & FA_WRITE) && clst >= fs->n_fatent) {
+                        /* End of chain – allocate next cluster */
+                        clst = alloc_cluster(fs->curr_clust);
+                        if (!clst) break;			/* Disk full */
+                    }
                 }
                 if (clst <= 1) ABORT(FR_DISK_ERR);
                 fs->curr_clust = clst;				/* Update current cluster */
@@ -1034,9 +1240,13 @@ FRESULT pf_write (
         fs->fptr += wcnt; p += wcnt;				/* Update pointers and counters */
         btw -= wcnt; *bw += wcnt;
         if ((UINT)fs->fptr % 512 == 0) {
-            if (disk_writep(0, 0)) ABORT(FR_DISK_ERR);	/* Finalize the currtent secter write operation */
+            if (disk_writep(0, 0)) ABORT(FR_DISK_ERR);	/* Finalize the current sector write operation */
             fs->flag &= ~FA__WIP;
         }
+    }
+
+    if ((fs->flag & FA_WRITE) && fs->fptr > fs->fsize) {
+        fs->fsize = fs->fptr;				/* Track written size for directory update on finalize */
     }
 
     return FR_OK;
@@ -1171,3 +1381,86 @@ FRESULT pf_readdir (
 
 #endif /* PF_USE_DIR */
 
+
+/*-----------------------------------------------------------------------*/
+/* Create or Open a File for Writing                                     */
+/*-----------------------------------------------------------------------*/
+#if PF_USE_WRITE
+
+FRESULT pf_create (
+    const char *path	/* Pointer to the file name to create or open */
+)
+{
+    FRESULT res;
+    DIR dj;
+    BYTE sp[12], dir[32];
+    FATFS *fs = FatFs;
+    UINT diroff;
+
+
+    if (!fs) return FR_NOT_ENABLED;		/* Check file system */
+
+    fs->flag = 0;
+    dj.fn = sp;
+    res = follow_path(&dj, dir, path);	/* Follow the file path */
+
+    if (res == FR_OK) {
+        /* File found – open it for writing (truncate to zero length) */
+        if (!dir[0] || (dir[DIR_Attr] & AM_DIR)) return FR_NO_FILE;
+        /* Note: any existing cluster chain is orphaned (clusters not freed).
+         * A full implementation would walk and free the old chain here. */
+        fs->org_clust = 0;
+        fs->fsize = 0;
+        fs->fptr = 0;
+        fs->flag = FA_OPENED | FA_WRITE;
+        fs->dirsect = dj.sect;
+        fs->dirindex = (BYTE)(dj.index % 16);
+        /* Commit the truncation immediately so the directory reflects size 0 */
+        return update_dirent();
+    }
+
+    if (res != FR_NO_FILE) return res;	/* Unexpected error */
+
+    /* File not found – create a new directory entry.
+     * dj.fn (= sp) already holds the 8.3 SFN built by follow_path. */
+    dj.sclust = 0;						/* Always create in the root directory */
+    res = dir_rewind(&dj);
+    if (res != FR_OK) return res;
+
+    /* Scan root directory for a free slot (end-of-dir 0x00 or deleted 0xE5) */
+    for (;;) {
+        if (!dj.sect) { res = FR_NO_FILE; break; }
+        res = disk_readp(dir, dj.sect, (dj.index % 16) * 32, 32)
+            ? FR_DISK_ERR : FR_OK;
+        if (res != FR_OK) break;
+        if (dir[0] == 0x00 || dir[0] == 0xE5) { res = FR_OK; break; }
+        res = dir_next(&dj);
+        if (res != FR_OK) break;
+    }
+    if (res != FR_OK) return res;
+
+    /* Build the 32-byte directory entry in dir[] */
+    mem_set(dir, 0, 32);
+    mem_cpy(dir, sp, 11);				/* Copy the 8.3 SFN */
+    if (dir[0] == 0xE5) dir[0] = 0x05;	/* Escape 0xE5 as 0x05 */
+    dir[DIR_Attr] = 0x20;				/* Archive attribute */
+    /* All other fields (time, date, cluster, size) remain zero */
+
+    /* Write the new entry via read-modify-write on the directory sector */
+    diroff = (UINT)(dj.index % 16) * 32;
+    if (disk_readp(wbuf, dj.sect, 0, 512)) return FR_DISK_ERR;
+    mem_cpy(wbuf + diroff, dir, 32);
+    if (write_sector(dj.sect)) return FR_DISK_ERR;
+
+    /* Set up the file system object for writing */
+    fs->org_clust = 0;
+    fs->fsize = 0;
+    fs->fptr = 0;
+    fs->flag = FA_OPENED | FA_WRITE;
+    fs->dirsect = dj.sect;
+    fs->dirindex = (BYTE)(dj.index % 16);
+
+    return FR_OK;
+}
+
+#endif /* PF_USE_WRITE */

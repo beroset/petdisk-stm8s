@@ -107,16 +107,13 @@ void main(void)
 #if PF_USE_WRITE
     if (!rc) {
         printf("\nOpen a file to write (write.txt).\n");
-        rc = pf_open("WRITE.TXT");
+        rc = pf_create("WRITE.TXT");
         if (rc) die(rc);
     }
 
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
-        for (;;) {
-                rc = pf_write("Hello world!\r\n", 14, &bw);
-                if (rc || !bw) break;
-        }
+        rc = pf_write("Hello world!\r\n", 14, &bw);
         if (rc) die(rc);
     }
     if (!rc) {

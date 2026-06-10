@@ -73,6 +73,10 @@ typedef struct {
 	CLUST	org_clust;	/* File start cluster */
 	CLUST	curr_clust;	/* File current cluster */
 	DWORD	dsect;		/* File current data sector */
+#if PF_USE_WRITE
+	DWORD	dirsect;	/* Sector containing the file's directory entry */
+	BYTE	dirindex;	/* Index of the file's directory entry within sector (0..15) */
+#endif
 } FATFS;
 
 
@@ -125,6 +129,9 @@ FRESULT pf_write (const void* buff, UINT btw, UINT* bw);	/* Write data to the op
 FRESULT pf_lseek (DWORD ofs);								/* Move file pointer of the open file */
 FRESULT pf_opendir (DIR* dj, const char* path);				/* Open a directory */
 FRESULT pf_readdir (DIR* dj, FILINFO* fno);					/* Read a directory item from the open directory */
+#if PF_USE_WRITE
+FRESULT pf_create (const char* path);						/* Create or open a file for writing with cluster allocation */
+#endif
 
 
 
@@ -135,6 +142,7 @@ FRESULT pf_readdir (DIR* dj, FILINFO* fno);					/* Read a directory item from th
 /* File status flag (FATFS.flag) */
 #define	FA_OPENED	0x01
 #define	FA_WPRT		0x02
+#define	FA_WRITE	0x04	/* File opened for write with cluster allocation */
 #define	FA__WIP		0x40
 
 
