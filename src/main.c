@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "stm8.h"
-#include "display.h"
 #include "timer.h"
 #include "uart.h"
 #include "pindefs.h"
@@ -49,9 +48,6 @@ static void reset_on_halt()
     WWDG_CR = 0x80;
 }
 
-static const char* hex = "0123456789ABCDEF";
-
-
 void die (		/* Stop with dying message */
 	FRESULT rc	/* FatFs return value */
 )
@@ -71,8 +67,6 @@ void main(void)
 {
     init();
     enableInterrupts();
-    display_reset();
-    display_print(" Hello\nPETski!");
     puts(" Hello\nPETski!");
     FRESULT rc;
 

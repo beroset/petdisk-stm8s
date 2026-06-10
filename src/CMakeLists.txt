@@ -1,7 +1,6 @@
 set(SRCS
   main.c
   timer.c
-  display.c
   spi.c
   uart.c
   diskio.c
