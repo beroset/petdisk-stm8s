@@ -100,6 +100,7 @@ BYTE send_cmd (
     CS_L(); rcvr_mmc();
 
     /* Send a command packet */
+    disableInterrupts();
     xmit_mmc(cmd);					/* Start + Command index */
     xmit_mmc((BYTE)(arg >> 24));	/* Argument[31..24] */
     xmit_mmc((BYTE)(arg >> 16));	/* Argument[23..16] */
@@ -110,6 +111,7 @@ BYTE send_cmd (
     if (cmd == CMD8) n = 0x87;		/* Valid CRC for CMD8(0x1AA) */
     //printf("crc: %02x, ", n);
     xmit_mmc(n);
+    enableInterrupts();
 
     /* Receive a command response */
     n = 10;								/* Wait for a valid response in timeout of 10 attempts */
