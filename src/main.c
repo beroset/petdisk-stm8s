@@ -3,7 +3,10 @@
 #include "stm8.h"
 #include "display.h"
 #include "timer.h"
+#include "uart.h"
 #include "pindefs.h"
+#include "diskio.h"
+#include "pff.h"
 
 #if 0
 unsigned char __sdcc_external_startup(void) {
@@ -36,9 +39,33 @@ static void init()
     OUT(LED);
     SCR1(LED);
     CCR2(LED);
+
+    uart_init();
+}
+
+
+static void reset_on_halt()
+{
+    WWDG_CR = 0x80;
 }
 
 static const char* hex = "0123456789ABCDEF";
+
+
+void die (		/* Stop with dying message */
+	FRESULT rc	/* FatFs return value */
+)
+{
+	printf("Failed with rc=%u.\n", rc);
+}
+void fatprint(FATFS *fat)
+{
+    printf("fs_type %d\n", fat->fs_type);
+    printf("flag %x\n", fat->flag);
+    printf("csize %d\n", fat->csize);
+    printf("fatbase %ld\n", fat->fatbase);
+    printf("dirbase %ld\n", fat->dirbase);
+}
 
 void main(void)
 {
@@ -46,15 +73,97 @@ void main(void)
     enableInterrupts();
     display_reset();
     display_print(" Hello\nPETski!");
-    delay_ms(2000);
-    uint8_t addr = display_readaddr();
-    display_clear();
-    char msg[] = "00 ";
-    msg[0] = hex[(addr >> 4) & 0x0f];
-    msg[1] = hex[addr & 0x0f];
-    display_print(msg);
+    puts(" Hello\nPETski!");
+    FRESULT rc;
+
+    // disk things
+    FATFS fatfs;			/* File system object */
+    DIR dir;				/* Directory object */
+    FILINFO fno;			/* File information object */
+    UINT bw, br, i;
+    BYTE buff[64];
+
+    printf("\nMount a volume.\n");
+    rc = pf_mount(&fatfs);
+    if (rc) die(rc);
+    fatprint(&fatfs);
+
+    if (!rc) {
+        printf("\nOpen a test file (message.txt).\n");
+        rc = pf_open("MESSAGE.TXT");
+        if (rc) die(rc);
+    }
+    if (!rc) {
+        printf("\nType the file content.\n");
+        for (;;) {
+                rc = pf_read(buff, sizeof(buff), &br);	/* Read a chunk of file */
+                if (rc || !br) break;			/* Error or end of file */
+                for (i = 0; i < br; i++)		/* Type the data */
+                        putchar(buff[i]);
+        }
+        if (rc) die(rc);
+    }
+
+#if PF_USE_WRITE
+    if (!rc) {
+        printf("\nOpen a file to write (write.txt).\n");
+        rc = pf_open("WRITE.TXT");
+        if (rc) die(rc);
+    }
+
+    if (!rc) {
+        printf("\nWrite a text data. (Hello world!)\n");
+        for (;;) {
+                rc = pf_write("Hello world!\r\n", 14, &bw);
+                if (rc || !bw) break;
+        }
+        if (rc) die(rc);
+    }
+    if (!rc) {
+        printf("\nTerminate the file write process.\n");
+        rc = pf_write(0, 0, &bw);
+        if (rc) die(rc);
+    }
+#endif
+
+#if PF_USE_DIR
+    if (!rc) {
+        printf("\nOpen root directory.\n");
+        rc = pf_opendir(&dir, "");
+        if (rc) die(rc);
+    }
+    if (!rc) {
+        printf("\nDirectory listing...\n");
+        for (;;) {
+                rc = pf_readdir(&dir, &fno);	/* Read a directory item */
+                if (rc || !fno.fname[0]) break;	/* Error or end of dir */
+                if (fno.fattrib & AM_DIR)
+                        printf("   <dir>  %s\n", fno.fname);
+                else
+                        printf("%8lu  %s\n", fno.fsize, fno.fname);
+        }
+        if (rc) die(rc);
+    }
+#endif
+
+    if (rc) {
+        printf("\nTest FAILED.\n");
+    } else {
+        printf("\nTest completed.\n");
+    }
+
 
     for (;;) {
+        int command = getchar();
+        switch (command) {
+            case 'r':
+                puts("Resetting now...\n");
+                delay_ms(1000);
+                reset_on_halt();
+                break;
+            default:
+                // do nothing
+        }
         waitForInterrupt();
     }
 }

@@ -28,3 +28,8 @@ void delay_ms(unsigned ms)
         waitForInterrupt();
     }
 }
+
+
+int32_t now_ms() {
+    return ticks;
+}

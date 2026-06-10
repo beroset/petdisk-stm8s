@@ -3,10 +3,16 @@ set(SRCS
   timer.c
   display.c
   spi.c
+  uart.c
+  diskio.c
+  ../pff/source/pff.c
 )
 
 add_executable(main ${SRCS})
+target_include_directories(main PRIVATE ../pff/source)
 
 target_compile_options(main PRIVATE --opt-code-size --std=c23)
-target_compile_definitions(main PRIVATE "DEVBOARD=${DEVBOARD}")
+if (DEVBOARD)
+    target_compile_definitions(main PRIVATE DEVBOARD=1)
+endif()
 
