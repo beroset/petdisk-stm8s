@@ -76,7 +76,6 @@ void main(void)
     puts(" Hello\nPETski!");
     FRESULT rc;
 
-    disableInterrupts();
     // disk things
     FATFS fatfs;			/* File system object */
     DIR dir;				/* Directory object */
