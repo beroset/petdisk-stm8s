@@ -2,10 +2,10 @@
 Interfacing the Commodore PET to a microSD card via the IEEE-488 bus using the STM8S microcontroller.
 
 ## Prerequisites
-You must have `CMake`, the `sdcc` compiler (version 4.4 or newer) and [`stm8flash`](https://github.com/vdudouyt/stm8flash) to flash the result into the target hardware.
+You must have `CMake`, the [`sdcc`](https://sdcc.sourceforge.net/) compiler (version 4.4 or newer) and [`stm8flash`](https://github.com/vdudouyt/stm8flash) to flash the result into the target hardware.
 
 ## Building the firmware
-The code uses CMake to create the build system.  On the Fedora Linux machine I use, here's the toolchain file:
+The code uses [CMake](https://cmake.org/) to create the build system.  On the Fedora Linux machine I use, here's the toolchain file:
 
 ```
 set(CMAKE_SYSTEM_NAME Generic)
