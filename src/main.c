@@ -4,8 +4,8 @@
 #include "timer.h"
 #include "uart.h"
 #include "pindefs.h"
+#include "ff.h"
 #include "diskio.h"
-#include "pff.h"
 
 #if 0
 unsigned char __sdcc_external_startup(void) {
@@ -57,7 +57,6 @@ void die (		/* Stop with dying message */
 void fatprint(FATFS *fat)
 {
     printf("fs_type %d\n", fat->fs_type);
-    printf("flag %x\n", fat->flag);
     printf("csize %d\n", fat->csize);
     printf("fatbase %ld\n", fat->fatbase);
     printf("dirbase %ld\n", fat->dirbase);
@@ -72,50 +71,50 @@ void main(void)
 
     // disk things
     FATFS fatfs;			/* File system object */
-    DIR dir;				/* Directory object */
-    FILINFO fno;			/* File information object */
+    FIL file;			/* File object */
     UINT bw, br, i;
-    BYTE buff[64];
+    uint8_t buff[FF_MAX_SS];
 
     printf("\nMount a volume.\n");
-    rc = pf_mount(&fatfs);
+    rc = f_mount(&fatfs, "", 0);
     if (rc) die(rc);
     fatprint(&fatfs);
 
     if (!rc) {
         printf("\nOpen a test file (message.txt).\n");
-        rc = pf_open("MESSAGE.TXT");
+        rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
         if (rc) die(rc);
     }
     if (!rc) {
         printf("\nType the file content.\n");
         for (;;) {
-                rc = pf_read(buff, sizeof(buff), &br);	/* Read a chunk of file */
-                if (rc || !br) break;			/* Error or end of file */
-                for (i = 0; i < br; i++)		/* Type the data */
-                        putchar(buff[i]);
+            rc = f_read(&file, &buff, sizeof(buff), &br);	/* Read a chunk of file */
+            if (rc || !br) break;			/* Error or end of file */
+            for (i = 0; i < br; i++)		/* Type the data */
+                    putchar(buff[i]);
         }
         if (rc) die(rc);
     }
-
+    f_close(&file);
+#if 0
 #if PF_USE_WRITE
     if (!rc) {
         printf("\nOpen a file to write (write.txt).\n");
-        rc = pf_open("WRITE.TXT");
+        rc = f_open("WRITE.TXT", FA_WRITE, FA_CREATE_ALWAYS);
         if (rc) die(rc);
     }
 
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
         for (;;) {
-                rc = pf_write("Hello world!\r\n", 14, &bw);
+                rc = f_write("Hello world!\r\n", 14, &bw);
                 if (rc || !bw) break;
         }
         if (rc) die(rc);
     }
     if (!rc) {
         printf("\nTerminate the file write process.\n");
-        rc = pf_write(0, 0, &bw);
+        rc = f_write(0, 0, &bw);
         if (rc) die(rc);
     }
 #endif
@@ -123,13 +122,13 @@ void main(void)
 #if PF_USE_DIR
     if (!rc) {
         printf("\nOpen root directory.\n");
-        rc = pf_opendir(&dir, "");
+        rc = f_opendir(&dir, "");
         if (rc) die(rc);
     }
     if (!rc) {
         printf("\nDirectory listing...\n");
         for (;;) {
-                rc = pf_readdir(&dir, &fno);	/* Read a directory item */
+                rc = f_readdir(&dir, &fno);	/* Read a directory item */
                 if (rc || !fno.fname[0]) break;	/* Error or end of dir */
                 if (fno.fattrib & AM_DIR)
                         printf("   <dir>  %s\n", fno.fname);
@@ -139,12 +138,14 @@ void main(void)
         if (rc) die(rc);
     }
 #endif
+#endif
 
     if (rc) {
         printf("\nTest FAILED.\n");
     } else {
         printf("\nTest completed.\n");
     }
+    f_mount(0, "", 1);
 
 
     for (;;) {
