@@ -247,7 +247,12 @@ BYTE send_cmd (		/* Returns command response (bit7==1:Send failed)*/
 	/* Select the card and wait for ready except to stop multiple block read */
 	if (cmd != CMD12) {
 		deselect();
-		if (!select()) return 0xFF;
+		if (cmd == CMD0) {	/* CMD0: skip wait_ready, card may not yet be in SPI mode */
+			CS_L();
+			rcvr_mmc(&d, 1);
+		} else {
+			if (!select()) return 0xFF;
+		}
 	}
 
 	/* Send a command packet */
