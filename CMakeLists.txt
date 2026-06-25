@@ -27,3 +27,8 @@ add_custom_target(flash
   DEPENDS main
   COMMENT "Flashing $<TARGET_FILE_BASE_NAME:main>.ihx"
 )
+
+add_custom_target(ctags
+  COMMAND ctags -R ${CMAKE_CURRENT_SOURCE_DIR}/fatfs/source ${CMAKE_CURRENT_SOURCE_DIR}/src
+  COMMENT "Building ctags"
+)
