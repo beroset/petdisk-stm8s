@@ -49,14 +49,18 @@ static uint8_t SPI_transfer(uint8_t data)
     uint16_t timeout = SPI_TRANSFER_TIMEOUT;
 
     SPI_DR = data;
-    while (!(SPI_SR & (1 << TXE)) && --timeout);
+    while (!(SPI_SR & (1 << TXE)) && timeout > 0) {
+        timeout--;
+    }
     if (!timeout) {
         SPI_recover();
         return 0xFF;
     }
 
     timeout = SPI_TRANSFER_TIMEOUT;
-    while (!(SPI_SR & (1 << RXNE)) && --timeout);
+    while (!(SPI_SR & (1 << RXNE)) && timeout > 0) {
+        timeout--;
+    }
     if (!timeout) {
         SPI_recover();
         return 0xFF;
@@ -82,7 +86,9 @@ void chip_select() {
 void chip_deselect() {
     uint16_t timeout = SPI_BUSY_TIMEOUT;
 
-    while ((SPI_SR & (1 << BSY)) && --timeout);
+    while ((SPI_SR & (1 << BSY)) && timeout > 0) {
+        timeout--;
+    }
     if (!timeout) {
         // If BSY never clears, reset SPI to recover from a stuck bus state.
         SPI_recover();
