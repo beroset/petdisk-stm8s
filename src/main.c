@@ -106,8 +106,8 @@ void main(void)
 
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
-        rc = f_write(&file, "Hello world!\r\n", 14, &bw);
-        if (!rc && bw != 14) rc = FR_DISK_ERR;
+        rc = f_write(&file, "Hello world!\r\n", sizeof("Hello world!\r\n") - 1, &bw);
+        if (!rc && bw != sizeof("Hello world!\r\n") - 1) rc = FR_DISK_ERR;
         if (rc) die(rc);
     }
     if (!rc) {

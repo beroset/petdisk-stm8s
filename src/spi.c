@@ -17,8 +17,8 @@
 #define BSY         7
 #define TXE         1
 #define RXNE        0
-#define SPI_BUSY_TIMEOUT 0xFFFF      // ~maximum bounded poll for BSY release
-#define SPI_TRANSFER_TIMEOUT 0xFFFF  // ~maximum bounded poll for TXE/RXNE
+#define SPI_BUSY_TIMEOUT 0xFFFF      // Bounded BSY poll at 2MHz CPU / 250kHz SPI.
+#define SPI_TRANSFER_TIMEOUT 0xFFFF  // Bounded TXE/RXNE poll on each byte transfer.
 
 /*
  * I found this web site useful and have based much of this code on it:
@@ -40,7 +40,7 @@ void SPI_init()
     SET(CS);
     // set up SPI mode
     SPI_CR1 = (1u << SPE) | (1u << BR1) | (1u << MSTR);
-    SPI_CR2 = (1u << SSM) | (1u << SSI);
+    SPI_CR2 = (1u << SSM) | (1u << SSI); // Keep master mode under software NSS control.
     (void)SPI_DR;
     (void)SPI_SR; // Clear any stale SPI status/data state before first transfer.
 }
