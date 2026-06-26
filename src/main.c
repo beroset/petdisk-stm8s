@@ -74,6 +74,7 @@ void main(void)
     FIL file;			/* File object */
     UINT bw, br, i;
     uint8_t buff[FF_MAX_SS];
+    static const char write_text[] = "Hello world!\r\n";
 
     printf("\nMount a volume.\n");
     rc = f_mount(&fatfs, "", 0);
@@ -106,8 +107,8 @@ void main(void)
 
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
-        rc = f_write(&file, "Hello world!\r\n", sizeof("Hello world!\r\n") - 1, &bw);
-        if (!rc && bw != sizeof("Hello world!\r\n") - 1) rc = FR_DISK_ERR;
+        rc = f_write(&file, write_text, sizeof(write_text) - 1, &bw);
+        if (!rc && bw != sizeof(write_text) - 1) rc = FR_DISK_ERR;
         if (rc) die(rc);
     }
     if (!rc) {
