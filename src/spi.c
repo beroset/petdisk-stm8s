@@ -31,7 +31,9 @@ void SPI_init()
     SET(CS);
     // set up SPI mode
     SPI_CR1 = (1u << SPE) | (1u << BR1) | (1u << MSTR);
-    SPI_CR2 = (0u << SSM) | (1u << SSI);
+    SPI_CR2 = (1u << SSM) | (1u << SSI);
+    (void)SPI_DR;
+    (void)SPI_SR;
 }
 
 static uint8_t SPI_transfer(uint8_t data)
@@ -57,6 +59,8 @@ void chip_select() {
 }
 
 void chip_deselect() {
-    while ((SPI_SR & (1 << BSY)));
+    uint16_t timeout = 0xFFFF;
+
+    while ((SPI_SR & (1 << BSY)) && --timeout);
     SET(CS);
 }
