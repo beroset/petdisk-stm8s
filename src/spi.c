@@ -17,14 +17,15 @@
 #define BSY         7
 #define TXE         1
 #define RXNE        0
-#define SPI_BUSY_TIMEOUT 0xFFFF
-#define SPI_TRANSFER_TIMEOUT 0xFFFF
+#define SPI_BUSY_TIMEOUT 0xFFFF      // ~maximum bounded poll for BSY release
+#define SPI_TRANSFER_TIMEOUT 0xFFFF  // ~maximum bounded poll for TXE/RXNE
 
 /*
  * I found this web site useful and have based much of this code on it:
  * https://lujji.github.io/blog/bare-metal-programming-stm8/
  */
 
+/* Reset SPI state machine if the peripheral appears stuck. */
 static void SPI_recover(void)
 {
     SPI_CR1 &= (uint8_t)~(1u << SPE);
@@ -41,7 +42,7 @@ void SPI_init()
     SPI_CR1 = (1u << SPE) | (1u << BR1) | (1u << MSTR);
     SPI_CR2 = (1u << SSM) | (1u << SSI);
     (void)SPI_DR;
-    (void)SPI_SR;
+    (void)SPI_SR; // Clear any stale SPI status/data state before first transfer.
 }
 
 static uint8_t SPI_transfer(uint8_t data)
