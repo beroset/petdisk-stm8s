@@ -1,7 +1,0 @@
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/CMakeFiles/flash.dir
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/CMakeFiles/ctags.dir
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/CMakeFiles/edit_cache.dir
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/CMakeFiles/rebuild_cache.dir
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/src/CMakeFiles/main.dir
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/src/CMakeFiles/edit_cache.dir
-/home/runner/work/petdisk-stm8s/petdisk-stm8s/build/src/CMakeFiles/rebuild_cache.dir
