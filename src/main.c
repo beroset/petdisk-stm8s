@@ -96,28 +96,26 @@ void main(void)
         if (rc) die(rc);
     }
     f_close(&file);
-#if 0
-#if PF_USE_WRITE
+
     if (!rc) {
         printf("\nOpen a file to write (write.txt).\n");
-        rc = f_open("WRITE.TXT", FA_WRITE, FA_CREATE_ALWAYS);
+        rc = f_open(&file, "WRITE.TXT", FA_WRITE | FA_CREATE_ALWAYS);
         if (rc) die(rc);
     }
 
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
         for (;;) {
-                rc = f_write("Hello world!\r\n", 14, &bw);
+                rc = f_write(&file, "Hello world!\r\n", 14, &bw);
                 if (rc || !bw) break;
         }
         if (rc) die(rc);
     }
     if (!rc) {
         printf("\nTerminate the file write process.\n");
-        rc = f_write(0, 0, &bw);
+        f_close(&file);
         if (rc) die(rc);
     }
-#endif
 
 #if PF_USE_DIR
     if (!rc) {
@@ -137,7 +135,6 @@ void main(void)
         }
         if (rc) die(rc);
     }
-#endif
 #endif
 
     if (rc) {
