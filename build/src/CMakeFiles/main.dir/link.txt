@@ -1,0 +1,1 @@
+/usr/bin/cc -mstm8 -Wl,--dependency-file=CMakeFiles/main.dir/link.d CMakeFiles/main.dir/main.c.o CMakeFiles/main.dir/timer.c.o CMakeFiles/main.dir/spi.c.o CMakeFiles/main.dir/uart.c.o CMakeFiles/main.dir/diskio.c.o CMakeFiles/main.dir/__/fatfs/source/ff.c.o -o main
