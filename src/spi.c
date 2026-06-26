@@ -18,11 +18,18 @@
 #define TXE         1
 #define RXNE        0
 #define SPI_BUSY_TIMEOUT 0xFFFF
+#define SPI_TRANSFER_TIMEOUT 0xFFFF
 
 /*
  * I found this web site useful and have based much of this code on it:
  * https://lujji.github.io/blog/bare-metal-programming-stm8/
  */
+
+static void SPI_recover(void)
+{
+    SPI_CR1 &= (uint8_t)~(1u << SPE);
+    SPI_CR1 |= (1u << SPE);
+}
 
 void SPI_init()
 {
@@ -39,9 +46,22 @@ void SPI_init()
 
 static uint8_t SPI_transfer(uint8_t data)
 {
+    uint16_t timeout = SPI_TRANSFER_TIMEOUT;
+
     SPI_DR = data;
-    while (!(SPI_SR & (1 << TXE)));
-    while (!(SPI_SR & (1 << RXNE)));
+    while (!(SPI_SR & (1 << TXE)) && --timeout);
+    if (!timeout) {
+        SPI_recover();
+        return 0xFF;
+    }
+
+    timeout = SPI_TRANSFER_TIMEOUT;
+    while (!(SPI_SR & (1 << RXNE)) && --timeout);
+    if (!timeout) {
+        SPI_recover();
+        return 0xFF;
+    }
+
     return SPI_DR;
 }
 
@@ -64,8 +84,8 @@ void chip_deselect() {
 
     while ((SPI_SR & (1 << BSY)) && --timeout);
     if (!timeout) {
-        SPI_CR1 &= (uint8_t)~(1u << SPE);
-        SPI_CR1 |= (1u << SPE);
+        // If BSY never clears, reset SPI to recover from a stuck bus state.
+        SPI_recover();
     }
     SET(CS);
 }
