@@ -95,7 +95,8 @@ void main(void)
         }
         if (rc) die(rc);
     }
-    f_close(&file);
+    rc = f_close(&file);
+    if (rc) die(rc);
 
     if (!rc) {
         printf("\nOpen a file to write (write.txt).\n");
@@ -105,15 +106,13 @@ void main(void)
 
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
-        for (;;) {
-                rc = f_write(&file, "Hello world!\r\n", 14, &bw);
-                if (rc || !bw) break;
-        }
+        rc = f_write(&file, "Hello world!\r\n", 14, &bw);
+        if (!rc && bw != 14) rc = FR_DISK_ERR;
         if (rc) die(rc);
     }
     if (!rc) {
         printf("\nTerminate the file write process.\n");
-        f_close(&file);
+        rc = f_close(&file);
         if (rc) die(rc);
     }
 
