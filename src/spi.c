@@ -34,18 +34,22 @@ void SPI_init()
     SPI_CR2 = (0u << SSM) | (1u << SSI);
 }
 
-void SPI_write(uint8_t data)
+static uint8_t SPI_transfer(uint8_t data)
 {
     SPI_DR = data;
     while (!(SPI_SR & (1 << TXE)));
+    while (!(SPI_SR & (1 << RXNE)));
+    return SPI_DR;
+}
+
+void SPI_write(uint8_t data)
+{
+    (void)SPI_transfer(data);
 }
 
 uint8_t SPI_read()
 {
-    while (!(SPI_SR & (1 << TXE)));
-    SPI_write(0xFF);
-    while (!(SPI_SR & (1 << RXNE)));
-    return SPI_DR;
+    return SPI_transfer(0xFF);
 }
 
 void chip_select() {
