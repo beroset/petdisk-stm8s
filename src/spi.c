@@ -59,8 +59,13 @@ void chip_select() {
 }
 
 void chip_deselect() {
-    uint16_t timeout = 0xFFFF;
+    const uint16_t spi_busy_timeout = 0xFFFF;
+    uint16_t timeout = spi_busy_timeout;
 
     while ((SPI_SR & (1 << BSY)) && --timeout);
+    if (!timeout) {
+        SPI_CR1 &= (uint8_t)~(1u << SPE);
+        SPI_CR1 |= (1u << SPE);
+    }
     SET(CS);
 }
