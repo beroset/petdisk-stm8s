@@ -17,6 +17,7 @@
 #define BSY         7
 #define TXE         1
 #define RXNE        0
+#define SPI_BUSY_TIMEOUT 0xFFFF
 
 /*
  * I found this web site useful and have based much of this code on it:
@@ -59,8 +60,7 @@ void chip_select() {
 }
 
 void chip_deselect() {
-    const uint16_t spi_busy_timeout = 0xFFFF;
-    uint16_t timeout = spi_busy_timeout;
+    uint16_t timeout = SPI_BUSY_TIMEOUT;
 
     while ((SPI_SR & (1 << BSY)) && --timeout);
     if (!timeout) {
