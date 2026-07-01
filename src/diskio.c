@@ -74,6 +74,22 @@ BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 static void skip_mmc (UINT n) {
     while (n--) SPI_read();
 }
+#define DEBUG_DISK 1
+#if DEBUG_DISK
+/*
+ * print a sector at buff
+ */
+static void printsector(const BYTE* buff)
+{
+    for (UINT n = 0; n < 512; ++n, ++buff) {
+        if ((n & 0xf) == 0) { 
+            printf("\n%04x:", n); 
+        }
+        printf(" %02x", *buff & 0xff);
+    }
+    putchar('\n');
+}
+#endif
 
 /*
  * -----------------------------------------------------------------------
@@ -373,7 +389,10 @@ DRESULT disk_read (
 {
     BYTE cmd;
     DWORD sect = (DWORD)sector;
-
+#if DEBUG_DISK
+    BYTE *origbuff = buff;
+    printf("READ %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
+#endif
 
     if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
     if (!(CardType & CT_BLOCK)) sect *= 512;	/* Convert LBA to byte address if needed */
@@ -387,6 +406,11 @@ DRESULT disk_read (
         if (cmd == CMD18) send_cmd(CMD12, 0);	/* STOP_TRANSMISSION */
     }
     deselect();
+#if DEBUG_DISK
+    if (!count) {
+        printsector(origbuff);
+    }
+#endif
 
     return count ? RES_ERROR : RES_OK;
 }
@@ -404,31 +428,35 @@ DRESULT disk_write (
 	UINT count			/* Sector count (1..128) */
 )
 {
-	DWORD sect = (DWORD)sector;
+    DWORD sect = (DWORD)sector;
 
+#if DEBUG_DISK
+    printf("WRITE %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
+    printsector(buff);
+#endif
 
-	if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
-	if (!(CardType & CT_BLOCK)) sect *= 512;	/* Convert LBA to byte address if needed */
+    if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
+    if (!(CardType & CT_BLOCK)) sect *= 512;	/* Convert LBA to byte address if needed */
 
-	if (count == 1) {	/* Single block write */
-		if ((send_cmd(CMD24, sect) == 0)	/* WRITE_BLOCK */
-			&& xmit_datablock(buff, 0xFE))
-			count = 0;
-	}
-	else {				/* Multiple block write */
-		if (CardType & CT_SDC) send_cmd(ACMD23, count);
-		if (send_cmd(CMD25, sect) == 0) {	/* WRITE_MULTIPLE_BLOCK */
-			do {
-				if (!xmit_datablock(buff, 0xFC)) break;
-				buff += 512;
-			} while (--count);
-			if (!xmit_datablock(0, 0xFD))	/* STOP_TRAN token */
-				count = 1;
-		}
-	}
-	deselect();
+    if (count == 1) {	/* Single block write */
+            if ((send_cmd(CMD24, sect) == 0)	/* WRITE_BLOCK */
+                    && xmit_datablock(buff, 0xFE))
+                    count = 0;
+    }
+    else {				/* Multiple block write */
+            if (CardType & CT_SDC) send_cmd(ACMD23, count);
+            if (send_cmd(CMD25, sect) == 0) {	/* WRITE_MULTIPLE_BLOCK */
+                    do {
+                            if (!xmit_datablock(buff, 0xFC)) break;
+                            buff += 512;
+                    } while (--count);
+                    if (!xmit_datablock(0, 0xFD))	/* STOP_TRAN token */
+                            count = 1;
+            }
+    }
+    deselect();
 
-	return count ? RES_ERROR : RES_OK;
+    return count ? RES_ERROR : RES_OK;
 }
 
 

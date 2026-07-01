@@ -62,6 +62,36 @@ void fatprint(FATFS *fat)
     printf("dirbase %ld\n", fat->dirbase);
 }
 
+FRESULT list_dir (const char *path)
+{
+    FRESULT res;
+    DIR dir;
+    FILINFO fno;
+    int nfile, ndir;
+
+
+    res = f_opendir(&dir, path);                   /* Open the directory */
+    if (res == FR_OK) {
+        nfile = ndir = 0;
+        for (;;) {
+            res = f_readdir(&dir, &fno);           /* Read a directory item */
+            if (fno.fname[0] == 0) break;          /* Error or end of dir */
+            if (fno.fattrib & AM_DIR) {            /* It is a directory */
+                printf("   <DIR>   %s\n", fno.fname);
+                ndir++;
+            } else {                               /* It is a file */
+                printf("%10u %s\n", fno.fsize, fno.fname);
+                nfile++;
+            }
+        }
+        f_closedir(&dir);
+        printf("%d dirs, %d files.\n", ndir, nfile);
+    } else {
+        printf("Failed to open \"%s\". (%u)\n", path, res);
+    }
+    return res;
+}
+
 void main(void)
 {
     init();
@@ -79,20 +109,20 @@ void main(void)
     printf("\nMount a volume.\n");
     rc = f_mount(&fatfs, "", 0);
     if (rc) die(rc);
-    fatprint(&fatfs);
 
     if (!rc) {
         printf("\nOpen a test file (message.txt).\n");
-        rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+        rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ);
         if (rc) die(rc);
     }
+    fatprint(&fatfs);
     if (!rc) {
         printf("\nType the file content.\n");
         for (;;) {
             rc = f_read(&file, &buff, sizeof(buff), &br);	/* Read a chunk of file */
             if (rc || !br) break;			/* Error or end of file */
             for (i = 0; i < br; i++)		/* Type the data */
-                    putchar(buff[i]);
+                putchar(buff[i]);
         }
         if (rc) die(rc);
     }
@@ -112,31 +142,18 @@ void main(void)
         if (rc) die(rc);
     }
     if (!rc) {
-        printf("\nTerminate the file write process.\n");
+        printf("\nClose written file.\n");
         rc = f_close(&file);
         if (rc) die(rc);
     }
 
-#if PF_USE_DIR
+#if 0
     if (!rc) {
-        printf("\nOpen root directory.\n");
-        rc = f_opendir(&dir, "");
-        if (rc) die(rc);
-    }
-    if (!rc) {
-        printf("\nDirectory listing...\n");
-        for (;;) {
-                rc = f_readdir(&dir, &fno);	/* Read a directory item */
-                if (rc || !fno.fname[0]) break;	/* Error or end of dir */
-                if (fno.fattrib & AM_DIR)
-                        printf("   <dir>  %s\n", fno.fname);
-                else
-                        printf("%8lu  %s\n", fno.fsize, fno.fname);
-        }
+        printf("\nRead root directory.\n");
+        rc = list_dir("");
         if (rc) die(rc);
     }
 #endif
-
     if (rc) {
         printf("\nTest FAILED.\n");
     } else {
