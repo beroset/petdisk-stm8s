@@ -82,8 +82,8 @@ static void skip_mmc (UINT n) {
 static void printsector(const BYTE* buff)
 {
     for (UINT n = 0; n < 512; ++n, ++buff) {
-        if ((n & 0xf) == 0) { 
-            printf("\n%04x:", n); 
+        if ((n & 0xf) == 0) {
+            printf("\n%04x:", n);
         }
         printf(" %02x", *buff & 0xff);
     }
@@ -93,7 +93,7 @@ static void printsector(const BYTE* buff)
 
 /*
  * -----------------------------------------------------------------------
- * Send bytes to the card 
+ * Send bytes to the card
  *-----------------------------------------------------------------------
  */
 static
@@ -109,7 +109,7 @@ void xmit_mmc (
 
 /*
  * -----------------------------------------------------------------------
- * Receive bytes from the card 
+ * Receive bytes from the card
  *-----------------------------------------------------------------------
  */
 

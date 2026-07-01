@@ -62,6 +62,27 @@ void fatprint(FATFS *fat)
     printf("dirbase %ld\n", fat->dirbase);
 }
 
+static void dumpmem(const BYTE* buff, UINT sz) {
+    for (UINT n = 0; n < sz; ++n, ++buff) {
+        if ((n & 0xf) == 0) {
+            printf("\n%04x:", n);
+        }
+        printf(" %02x", *buff & 0xff);
+    }
+    putchar('\n');
+}
+
+static void dumpdir(const DIR* dir) {
+    printf("size of dir = %d\n", sizeof(DIR));
+    printf("dptr = 0x%lx, clust = 0x%lx, sect = 0x%lx\n\"", dir->dptr, dir->clust, dir->sect);
+    for (int i=0; i < 11; ++i) {
+        if (i == 8) putchar('.');
+        putchar(dir->fn[i]);
+    }
+    dumpmem(dir->dir, 16);
+    printf("\" flag = %02x\n", dir->fn[11]);
+}
+
 FRESULT list_dir (const char *path)
 {
     FRESULT res;
@@ -80,7 +101,7 @@ FRESULT list_dir (const char *path)
                 printf("   <DIR>   %s\n", fno.fname);
                 ndir++;
             } else {                               /* It is a file */
-                printf("%10u %s\n", fno.fsize, fno.fname);
+                printf("%10lu %s\n", fno.fsize, fno.fname);
                 nfile++;
             }
         }
@@ -117,7 +138,7 @@ void main(void)
     }
     fatprint(&fatfs);
     if (!rc) {
-        printf("\nType the file content.\n");
+        printf("\nType the file contents.\n");
         for (;;) {
             rc = f_read(&file, &buff, sizeof(buff), &br);	/* Read a chunk of file */
             if (rc || !br) break;			/* Error or end of file */
@@ -131,10 +152,9 @@ void main(void)
 
     if (!rc) {
         printf("\nOpen a file to write (write.txt).\n");
-        rc = f_open(&file, "WRITE.TXT", FA_WRITE | FA_CREATE_ALWAYS);
+        rc = f_open(&file, "WRITE.TXT", FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
         if (rc) die(rc);
     }
-
     if (!rc) {
         printf("\nWrite a text data. (Hello world!)\n");
         rc = f_write(&file, write_text, sizeof(write_text) - 1, &bw);
@@ -147,20 +167,17 @@ void main(void)
         if (rc) die(rc);
     }
 
-#if 0
     if (!rc) {
         printf("\nRead root directory.\n");
         rc = list_dir("");
         if (rc) die(rc);
     }
-#endif
     if (rc) {
         printf("\nTest FAILED.\n");
     } else {
         printf("\nTest completed.\n");
     }
     f_mount(0, "", 1);
-
 
     for (;;) {
         int command = getchar();
