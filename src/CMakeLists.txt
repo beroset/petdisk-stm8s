@@ -5,6 +5,7 @@ set(SRCS
   uart.c
   diskio.c
   ../fatfs/source/ff.c
+  ../fatfs/source/ffunicode.c
 )
 
 add_executable(main ${SRCS})
