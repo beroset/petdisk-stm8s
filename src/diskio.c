@@ -67,14 +67,14 @@ DSTATUS Stat = STA_NOINIT;	/* Disk status */
 static
 BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 
-/*-----------------------------------------------------------------------*/
-/* Skip bytes on the MMC (bitbanging)                                    */
-/*-----------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------
+ * Skip bytes on the MMC 
+ *-----------------------------------------------------------------------*/
 
 static void skip_mmc (UINT n) {
     while (n--) SPI_read();
 }
-#define DEBUG_DISK 1
+#define DEBUG_DISK 0
 #if DEBUG_DISK
 /*
  * print a sector at buff
