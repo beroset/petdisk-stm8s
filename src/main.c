@@ -124,7 +124,7 @@ void main(void)
     FATFS fatfs;			/* File system object */
     FIL file;			/* File object */
     UINT bw, br, i;
-    uint8_t buff[FF_MAX_SS];
+    uint8_t buff[64];
     static const char write_text[] = "Hello world!\r\n";
 
     printf("\nMount a volume.\n");
