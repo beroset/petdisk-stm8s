@@ -392,6 +392,8 @@ DRESULT disk_read (
 #if DEBUG_DISK
     BYTE *origbuff = buff;
     printf("READ %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
+#else
+    printf("READ %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
 #endif
 
     if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
@@ -433,6 +435,8 @@ DRESULT disk_write (
 #if DEBUG_DISK
     printf("WRITE %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
     printsector(buff);
+#else
+    printf("WRITE %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
 #endif
 
     if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
