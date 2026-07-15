@@ -91,6 +91,15 @@ static void printsector(const BYTE* buff)
 }
 #endif
 
+static
+DWORD lbatobyteaddr(DWORD sect)
+{
+    if (!(CardType & CT_BLOCK)) {
+        sect *= 512;	/* Convert LBA to byte address if needed */
+    }
+    return sect;
+}
+
 /*
  * -----------------------------------------------------------------------
  * Send bytes to the card
@@ -392,12 +401,10 @@ DRESULT disk_read (
 #if DEBUG_DISK
     BYTE *origbuff = buff;
     printf("READ %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
-#else
-    printf("READ %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
 #endif
 
     if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
-    if (!(CardType & CT_BLOCK)) sect *= 512;	/* Convert LBA to byte address if needed */
+    sect = lbatobyteaddr(sect);	/* Convert LBA to byte address if needed */
 
     cmd = count > 1 ? CMD18 : CMD17;			/*  READ_MULTIPLE_BLOCK : READ_SINGLE_BLOCK */
     if (send_cmd(cmd, sect) == 0) {
@@ -435,12 +442,10 @@ DRESULT disk_write (
 #if DEBUG_DISK
     printf("WRITE %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
     printsector(buff);
-#else
-    printf("WRITE %d sectors starting at 0x%lx (0x%lx)\n", count, sect, sect*512);
 #endif
 
     if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
-    if (!(CardType & CT_BLOCK)) sect *= 512;	/* Convert LBA to byte address if needed */
+    sect = lbatobyteaddr(sect);	/* Convert LBA to byte address if needed */
 
     if (count == 1) {	/* Single block write */
             if ((send_cmd(CMD24, sect) == 0)	/* WRITE_BLOCK */
