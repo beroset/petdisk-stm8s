@@ -134,6 +134,10 @@ void main(void)
     if (!rc) {
         printf("\nOpen a test file (message.txt).\n");
         rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ);
+        // try again if it doesn't work the first time
+        if (rc == FR_NOT_READY) {
+            rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ);
+        }
         if (rc) die(rc);
     }
     fatprint(&fatfs);
