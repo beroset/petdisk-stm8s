@@ -113,13 +113,8 @@ FRESULT list_dir (const char *path)
     return res;
 }
 
-void main(void)
-{
-    init();
-    enableInterrupts();
-    puts(" Hello\nPETski!");
+void test() {
     FRESULT rc;
-
     // disk things
     FATFS fatfs;			/* File system object */
     FIL file;			/* File object */
@@ -182,6 +177,14 @@ void main(void)
         printf("\nTest completed.\n");
     }
     f_mount(0, "", 1);
+}
+
+void main(void)
+{
+    init();
+    enableInterrupts();
+    puts(" Hello\nPETski!");
+    test();
 
     for (;;) {
         int command = getchar();
