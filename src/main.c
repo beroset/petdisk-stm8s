@@ -194,6 +194,10 @@ void main(void)
                 delay_ms(1000);
                 reset_on_halt();
                 break;
+            case 's':
+                printf("Serial number");
+                dumpmem(0x48cd, 12);
+                break;
             default:
                 // do nothing
         }
