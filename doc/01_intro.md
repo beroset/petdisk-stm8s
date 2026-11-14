@@ -134,7 +134,12 @@ The first thing the is often done is to get some simple thing working first.  Fo
  - it requires minimal external circuitry
 
 ### Next software steps, generically
-Often the next useful thing to do is to enable the UART so that we can connect that to the development computer and conveniently print debugging messages or allow for simple serial requests.
+Often the next useful thing to do is to enable the UART so that we can connect that to the development computer and conveniently print debugging messages or allow for simple serial requests.  For this project, the next steps were:
+
+1. incorporating a microSD library
+2. figuring out how to configure and use it
+3. writing test routines to verify the microSD functions
+4. creating a serial interface to allow interactive read/write of the IEEE-488 bus
 
 ## Test
 It's most often useful to start with small subsystems, such as blinking LED and serial port, and then move on to more complex ones.

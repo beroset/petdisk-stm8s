@@ -106,21 +106,23 @@ NRFD is High
 Although there is only one Controller (the PET), all devices on the IEEE-488 bus may operate as either a Talker or a Listener.  The DAV line belongs to the Talker, while the NRFD and NDAC lines belong to the Listener.  For each of the described transitions, the number in parentheses refers to the first timing diagram above.  The numbers on the X-axis are only intended to indicate sequence and are not meant to show equal time periods.  One byte transfer (pri_addr in the diagram above) starts with the Listener de-asserts the NDAC and NRFD lines indicating that it's ready for data (0).  Then the Talker puts data on the DIO lines (2) and, after letting the data settle for 11µs, asserts the DAV line to indicate the data is valid (3).  The Listener responds by asserting NRFD (4).  Then the Listener de-asserts NDAC, signaling that it has read the data (5).  The Talker detects this and de-asserts DAV (6).  The Listener detects this condition and asserts NDAC (7) and then de-asserts NRFD (8), indicating that it is once again ready to receive data.
 
 #### Old vs. new PET ROMs
-The old ROMs (that show `***` in the title line at power up) and the new ROMs (that show `###` in the title at power up) also operate differently with the IEEE-488 bus.  The new ROMs correctly implement IEEE-488 commands, while the old ROMs do not.  The primary differences is that the old ROMs keep ATN asserted through the entire data transfer, while the new ROMs correctly de-assert when data transfer starts and through sending EOI coincident with the last data byte.  The new ROMs then assert ATN for the UNListen and any Listen Address Group (LAG) and Secondary Command Group (SCG) bytes that follow the data transfer.
+The old ROMs (that show `***` in the title line at power up) and the new ROMs (that show `###` in the title at power up) also operate differently with the IEEE-488 bus.  The new ROMs correctly implement IEEE-488 commands, while the old ROMs do not.  The primary differences is that the old ROMs keep ATN asserted through the entire data transfer, while the new ROMs correctly de-assert when data transfer starts and through sending EOI coincident with the last data byte.  The new ROMs then assert ATN for the UNListen and any Listen Address Group (LAG)/Talk Address Group (TAG) and Secondary Command Group (SCG) bytes that follow the data transfer.
 
 ### PET commands using IEEE-488 bus
 The following table describes the commands that use the IEEE-488 bus, and whether they are implemented in this project.  In the table, *f* is logical file number, *d* is the device primary address, *s* is the secondary address, and *n* is a string holding the file name.  The PET can only use a maximum of ten logical files at any one time.
 
-|   command        | implemented |
-|------------------|-------------|
-| OPEN f, d, s, n  | no          |
-| INPUT# f, n      | no          |
-| GET# f, n        | no          |
-| PRINT# f, n      | no          |
-| CMD f, n         | no          |
-| CLOSE f          | no          |
-| SAVE n, d, s     | no          |
-| LOAD n, d, s     | no          |
+|   command        | support (old/new) | First byte | Second byte |
+|------------------|-------------|------------|-------------|
+| OPEN f, d, s, n  | no/no       | 0x20 + d   | 0xF0 + s    |
+| INPUT# f, n      | no/no       | | |           
+| GET# f, n        | no/no       | | |           
+| PRINT# f, n      | no/no       | | |           
+| CMD f, n         | no/no       | | |           
+| CLOSE f          | no/no       | | |           
+| SAVE n, d, s     | yes/no      | 0x20 + d   | 0xF1        |
+| LOAD n, d, s     | no/no       | 0x40 + d   | 0xF1/0xF0   |
+
+For the LOAD command, the SCG is F0 for new ROMs and F1 for old ones.  For the SAVE command F1 is used by both.
 
 ## Further resources {#references}
 ### IEEE-488
