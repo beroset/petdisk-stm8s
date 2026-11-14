@@ -32,7 +32,7 @@ NDAC    | Not Data Accepted  | transfer control  |
 
 The PET is hardwired to act as the sole controller on the IEEE-488 bus, which means that anything connecting to the PET can only act as a peripheral device.  With the IEEE-488 bus, such devices can operate as a Talker, a Listener or both.  
 
-In brief, the PET asserts ATN and sends an address on the data bus.  Then ATN is de-asserted, and data is transferred with a handshake using DAV, NRFD and NDAC.  The first diagram shows just a primary and secondary address being transmitted.  Note that signals are active low.
+In brief, the PET asserts ATN and sends an address on the data bus.  Then ATN is de-asserted, and data is transferred with a handshake using DAV, NRFD and NDAC.  The first diagram shows just a primary and secondary address being transmitted.  Note that signals are active low, (0V) so when the description mentions that a line is "asserted" it means that it is low.
 
 @startuml
 binary "ATteNtion" as ATN
