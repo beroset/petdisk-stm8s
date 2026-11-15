@@ -6,6 +6,7 @@
 #include "pindefs.h"
 #include "ff.h"
 #include "diskio.h"
+#include "gpib.h"
 
 #if 0
 unsigned char __sdcc_external_startup(void) {
@@ -40,6 +41,7 @@ static void init()
     CCR2(LED);
 
     uart_init();
+    gpib_init();
 }
 
 
@@ -179,16 +181,30 @@ void test() {
     f_mount(0, "", 1);
 }
 
+void show_gpib()
+{
+    printf("EOI ATN DAV NRFD NDAC  data\n"
+           " %u   %u   %u    %u    %u    %02x\n", 
+           gpib_eoi() != 0,
+           gpib_atn() != 0,
+           gpib_dav() != 0,
+           gpib_nrfd() != 0,
+           gpib_ndac() != 0,
+           gpib_data() & 0xff);
+}
+
 void main(void)
 {
     init();
     enableInterrupts();
     puts(" Hello\nPETski!");
-    test();
 
     for (;;) {
         int command = getchar();
         switch (command) {
+            case 'b':  // read GPIB data bus
+                show_gpib();
+                break;
             case 'r':
                 puts("Resetting now...\n");
                 delay_ms(1000);
@@ -196,7 +212,10 @@ void main(void)
                 break;
             case 's':
                 printf("Serial number");
-                dumpmem(0x48cd, 12);
+                dumpmem((BYTE *)0x48cd, 12);
+                break;
+            case 't':
+                test();
                 break;
             default:
                 // do nothing

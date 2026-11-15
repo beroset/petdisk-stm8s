@@ -103,10 +103,15 @@
 #define EOI_PORT  B
 #define EOI_BIT   4
 
-// PD0-PD7 => DIO1-DIO8
-#define GPIB_SPAN_PORT D
-#define GPIB_SPAN_MASK 0xff
-#define GPIB_SPAN_SHIFT 0
+// PD0-PD4 => DIO1-DIO5
+#define GPIBLO_SPAN_PORT D
+#define GPIBLO_SPAN_MASK 0x1f
+#define GPIBLO_SPAN_SHIFT 0
+
+// PB0-PB2 => DIO6-DIO8
+#define GPIBHI_SPAN_PORT B
+#define GPIBHI_SPAN_MASK 0x07
+#define GPIBHI_SPAN_SHIFT 0
 
 #endif // DEVBOARD
 #endif // PINDEFS_H

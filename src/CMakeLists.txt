@@ -4,6 +4,7 @@ set(SRCS
   spi.c
   uart.c
   diskio.c
+  gpib.c
   ../fatfs/source/ff.c
   ../fatfs/source/ffunicode.c
 )
