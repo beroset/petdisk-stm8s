@@ -2,26 +2,26 @@
 
 Here's an overview of how it works, but interested readers are strongly encouraged to check the [references](@ref references) for details of how the IEEE-488 bus works and how the Commodore PET uses it.
 
-There is an 8-bit bidirectional data portion of the interface which is how data and addresses are transferred.  There are five interface control lines and three transfer control lines.  This table shows the names of the IEEE-488 bus lines and what it means:
+There is an 8-bit bidirectional data portion of the interface which is how data and addresses are transferred.  There are five interface control lines and three transfer control lines.  This table shows the names of the IEEE-488 bus lines and what it means, as well as the PET connector J1 pin and processor pin:
 
-Name    | Function        |  Group            |
---------|-----------------|-------------------|
-DIO1    | data in/out     | data bus          |
-DIO2    | data in/out     | data bus          |
-DIO3    | data in/out     | data bus          |
-DIO4    | data in/out     | data bus          |
-DIO5    | data in/out     | data bus          |
-DIO6    | data in/out     | data bus          |
-DIO7    | data in/out     | data bus          |
-DIO8    | data in/out     | data bus          |
-REN     | Remote Enable   | interface mgmt    |
-IFC     | Interface Clear | interface mgmt    |
-SRQ     | Service Request | interface mgmt    |
-ATN     | Attention       | interface mgmt    |
-EOI     | End or Identify | interface mgmt    |
-DAV     | Data Valid      | transfer control  |
-NRFD    | Not Ready For Data | transfer control  |
-NDAC    | Not Data Accepted  | transfer control  |
+Name    | Function        |  Group            | PET J1 | CPU |
+--------|-----------------|-------------------|--------|-----|
+DIO1    | data in/out     | data bus          |   1    |  25 |
+DIO2    | data in/out     | data bus          |   2    |  26 |
+DIO3    | data in/out     | data bus          |   3    |  27 |
+DIO4    | data in/out     | data bus          |   4    |  28 |
+DIO5    | data in/out     | data bus          |   A    |  29 |
+DIO6    | data in/out     | data bus          |   B    |  16 |
+DIO7    | data in/out     | data bus          |   C    |  15 |
+DIO8    | data in/out     | data bus          |   D    |  14 |
+REN     | Remote Enable   | interface mgmt    |   E    |  -- |
+IFC     | Interface Clear | interface mgmt    |   9    |  -- |
+SRQ     | Service Request | interface mgmt    |   10   |  -- |
+ATN     | Attention       | interface mgmt    |   11   |  11 |
+EOI     | End or Identify | interface mgmt    |   5    |  12 |
+DAV     | Data Valid      | transfer control  |   6    |   2 |
+NRFD    | Not Ready For Data | transfer control  | 7   |   3 |
+NDAC    | Not Data Accepted  | transfer control  | 8   |   8 |
 
 The PET is hardwired to act as the sole controller on the IEEE-488 bus, which means that anything connecting to the PET can only act as a peripheral device.  With the IEEE-488 bus, such devices can operate as a Talker, a Listener or both.  
 
