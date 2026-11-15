@@ -119,7 +119,9 @@ The details of the software are described in most of this manual; this section d
 
 Generically, the first consideration is tools, including compilers, linkers, debuggers and whatever else might be needed to create embedded software.  For this project and this CPU, the chosen tools are [SDCC](https://sdcc.sourceforge.net/) which is the Small Device C Compiler.  It's an open source compiler suite that has support for the STM8 processor used in this project.
 
-To program the part while it is in-circuit, one can use the open source [stm8flash](https://github.com/vdudouyt/stm8flash) tool with an ST-Link programming device, which is an inexpensive piece of hardware (inexpensive clones are available under $10) that connects a computer to the circuit for programming and debugging.
+To program the part while it is in-circuit, one can use the open source [stm8flash](https://github.com/vdudouyt/stm8flash) tool with an ST-Link programming device, which is an inexpensive piece of hardware (inexpensive clones are available under $10) that connects a computer to the circuit for programming and debugging.  
+
+**Note** that for this project, the SWIM pin is also PD1 which is connected to the PET.  To program the part you will have to temporarily disconnect the pin from the cable.
 
 Creating software for embedded systems is different from creating software for a typical desktop computer.  The first obvious difference is that developing software for a desktop machine usually means also developing that software on the same full-featured machine which already has an operating system, keyboard, mouse, and display.
 
