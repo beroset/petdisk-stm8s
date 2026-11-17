@@ -1,18 +1,16 @@
 #include <stdint.h>
+#include <stdio.h>
 #include "gpib.h"
 #include "stm8.h"
 #include "pindefs.h"
 
-#if 0
-static volatile uint32_t ticks = 0;
+static volatile uint32_t intcount = 0;
 
-void timer3_isr(void) __interrupt(TIM3_OVF_ISR)
+void atn_isr(void) __interrupt(EXTI1_ISR)
 {
-    // clear IT pending bit
-    BITCLR(TIM3_SR1, 0);
-    ++ticks;
+    FLIP(BLUE_LED);
+    ++intcount;
 }
-#endif
 
 void gpib_init()
 {
@@ -21,10 +19,12 @@ void gpib_init()
     IN_SPAN(GPIBHI);
     IN(ATN);
     CCR1(ATN); // floating
+    SCR2(ATN); // enable interrupt
+    EXTI_CR1 = (EXTI_CR1 & ~0x0C) | 0x0C;  // falling or rising edge
     IN(EOI);
     CCR1(EOI); // floating
-    /* 
-     * These change depending on whether we're Talker or Listener.  
+    /*
+     * These change depending on whether we're Talker or Listener.
      * Assume Listener initially.
      */
     IN(DAV);
@@ -38,6 +38,11 @@ void gpib_init()
     CCR1(NDAC);
     CCR2(NDAC);
 #endif
+    // set up LED output
+    OUT(BLUE_LED);
+    SCR1(BLUE_LED);
+    CCR2(BLUE_LED);
+    puts("blue LED set up");
 }
 
 uint8_t gpib_eoi() { return READ(EOI); }
@@ -51,4 +56,13 @@ uint8_t gpib_data()
     uint8_t lo = READ_SPAN(GPIBLO);
     uint8_t hi = READ_SPAN(GPIBHI);
     return (hi << 5) | lo;
+}
+
+uint32_t gpib_intcount()
+{
+    uint32_t count;
+    disableInterrupts();
+    count = intcount;
+    enableInterrupts();
+    return count;
 }
