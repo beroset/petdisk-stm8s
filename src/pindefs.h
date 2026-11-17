@@ -77,6 +77,13 @@
 #define LED_BIT 5
 
 /*
+ * BLUE LED for debugging
+ */
+#define BLUE_LED_PORT B
+#define BLUE_LED_BIT 3
+
+
+/*
  * IEEE-488 bus
  */
 /*
