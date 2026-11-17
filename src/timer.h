@@ -12,5 +12,9 @@ int32_t now_ms();
 #define delay_us(microseconds) \
     for (unsigned i = microseconds * 16 / 50; i; --i)  __asm__("nop")
 
+/*
+ * this ISR declaration needs to be here and this header included
+ * in main.c; otherwise, SDCC will not put it into the vector table.
+ */
 void timer3_isr(void) __interrupt(TIM3_OVF_ISR);
 #endif // TIMER1MS_H
