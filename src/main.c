@@ -205,6 +205,15 @@ void main(void)
             case 'b':  // read GPIB data bus
                 show_gpib();
                 break;
+            case 'c':  // read EXTI_CR1 and CR2
+                printf("EXTI_CR1: %02x, EXTI_CR2: %02x\n", EXTI_CR1, EXTI_CR2);
+                break;
+            case 'i':  // read GPIB int count
+                printf("intcount: %lu\n", gpib_intcount());
+                break;
+            case 'l':  // toggle blue LED
+                FLIP(BLUE_LED);
+                break;
             case 'r':
                 puts("Resetting now...\n");
                 delay_ms(1000);
