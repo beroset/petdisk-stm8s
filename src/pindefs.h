@@ -100,9 +100,9 @@
  */
 
 #define DAV_PORT  A
-#define DAV_BIT   1
+#define DAV_BIT   2
 #define NRFD_PORT A
-#define NRFD_BIT  2
+#define NRFD_BIT  1
 #define NDAC_PORT F
 #define NDAC_BIT  4
 #define ATN_PORT  B
