@@ -208,6 +208,9 @@ void main(void)
             case 'c':  // read EXTI_CR1 and CR2
                 printf("EXTI_CR1: %02x, EXTI_CR2: %02x\n", EXTI_CR1, EXTI_CR2);
                 break;
+            case 'f':  // read the GPIB buffer
+                gpib_printbuffer();
+                break;
             case 'i':  // read GPIB int count
                 printf("intcount: %lu\n", gpib_intcount());
                 break;
