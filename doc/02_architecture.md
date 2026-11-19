@@ -10,6 +10,6 @@ As with many microcontroller projects, the code is primarily interrupt-driven.  
 
  - timer2: used to toggle the blinking LED
  - timer3: used in timer routines
- - ATN: a GPIO interrupt for the IEEE-488 bus (port B)
- - DAV: a GPIO interrupt for the IEEE-488 bus
+ - ATN: a GPIO interrupt for the IEEE-488 bus (B5)
+ - DAV: a GPIO interrupt for the IEEE-488 bus (A2)
 
