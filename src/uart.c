@@ -26,8 +26,12 @@ void uart_write(uint8_t data) {
     while (!(UART2_SR & (1 << UART_TC)));
 }
 
+int kbhit() {
+    return (UART2_SR & (1 << UART_RXNE));
+}
+
 uint8_t uart_read() {
-    while (!(UART2_SR & (1 << UART_RXNE)));
+    while (!kbhit());
     return UART2_DR;
 }
 
