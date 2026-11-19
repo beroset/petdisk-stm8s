@@ -380,12 +380,12 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
  *
  */
 #define READ_SPAN(name) ( EXPAND_CAT3(P, name##_SPAN_PORT, _IDR) & \
-    EXPAND_CAT3(name, _SPAN, _MASK) ) >> \
+    EXPAND_CAT3(name, _SPAN, _MASK) ) << \
     EXPAND_CAT3(name, _SPAN, _SHIFT)
 #define WRITE_SPAN(name, value) EXPAND_CAT3(P, name##_SPAN_PORT, _ODR) = \
     ( EXPAND_CAT3(P, name##_SPAN_PORT, _ODR) & \
     ~(EXPAND_CAT3(name, _SPAN, _MASK) )) | \
-    ( (value << EXPAND_CAT3(name, _SPAN, _SHIFT)) & \
+    ( (value >> EXPAND_CAT3(name, _SPAN, _SHIFT)) & \
     EXPAND_CAT3(name, _SPAN, _MASK))
 #define OUT_SPAN(name) EXPAND_CAT3(P, name##_SPAN_PORT, _DDR) |= \
     EXPAND_CAT3(name, _SPAN, _MASK)
