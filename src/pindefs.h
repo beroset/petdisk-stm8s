@@ -110,15 +110,17 @@
 #define EOI_PORT  B
 #define EOI_BIT   4
 
-// PD0-PD4 => DIO1-DIO5
+// PD0, PD2-PD4, PD7 => DIO1-DIO5
+// 7 6 5 4 3 2 1 0 ; port pins
+// 1 - - 4 3 2 - 0 ; data bits
 #define GPIBLO_SPAN_PORT D
-#define GPIBLO_SPAN_MASK 0x1f
+#define GPIBLO_SPAN_MASK 0x9d
 #define GPIBLO_SPAN_SHIFT 0
 
 // PB0-PB2 => DIO6-DIO8
 #define GPIBHI_SPAN_PORT B
 #define GPIBHI_SPAN_MASK 0x07
-#define GPIBHI_SPAN_SHIFT 0
+#define GPIBHI_SPAN_SHIFT 5
 
 #endif // DEVBOARD
 #endif // PINDEFS_H
