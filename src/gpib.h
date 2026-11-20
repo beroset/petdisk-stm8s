@@ -28,7 +28,9 @@ enum bus_state {
                 lagsag,
                 scg,
                 load,
-                save
+                save,
+                rxpaused,
+                txpaused
             };
 enum bus_state gpib_state();
 const char *gpib_filename();
