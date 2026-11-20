@@ -8,12 +8,6 @@
 #include "diskio.h"
 #include "gpib.h"
 
-#if 0
-unsigned char __sdcc_external_startup(void) {
-    return 0;
-}
-#endif
-
 void timer2_isr(void) __interrupt(TIM2_OVF_ISR)
 {
     // clear IT pending bit
@@ -115,6 +109,7 @@ FRESULT list_dir (const char *path)
     return res;
 }
 
+static const char write_text[] = "Hello world!\r\n";
 void test() {
     FRESULT rc;
     // disk things
@@ -122,7 +117,6 @@ void test() {
     FIL file;			/* File object */
     UINT bw, br, i;
     uint8_t buff[64];
-    static const char write_text[] = "Hello world!\r\n";
 
     printf("\nMount a volume.\n");
     rc = f_mount(&fatfs, "", 0);
@@ -184,7 +178,7 @@ void test() {
 void show_gpib()
 {
     printf("EOI ATN DAV NRFD NDAC  data\n"
-           " %u   %u   %u    %u    %u    %02x\n", 
+           " %u   %u   %u    %u    %u    %02x\n",
            gpib_eoi() != 0,
            gpib_atn() != 0,
            gpib_dav() != 0,
@@ -193,44 +187,131 @@ void show_gpib()
            gpib_data() & 0xff);
 }
 
+#define BUFLEN 128
+static uint8_t buffer[BUFLEN];
+static FIL file;			/* File object */
+
+int writer(int ch, int from_interrupt)
+{
+    static int read_pointer = 0;
+    static int write_pointer = 0;
+    FRESULT rc = 0;
+    if (from_interrupt) {
+        buffer[write_pointer] = ch;
+        ++write_pointer;
+        write_pointer &= (BUFLEN-1);
+    } else {
+        uint8_t buffer2[BUFLEN];
+        int len = 0;
+        disableInterrupts();
+        for (uint8_t *ptr = buffer2; read_pointer != write_pointer; ++read_pointer) {
+            read_pointer &= (BUFLEN-1);
+            *ptr++ = buffer[read_pointer];
+            ++len;
+        }
+        enableInterrupts();
+        if (len) {
+            UINT bw;
+            rc = f_write(&file, buffer2, len, &bw);
+            dumpmem(buffer2, len);
+            printf("rc = %d, len =  %d, bw = %d\n", rc, len, bw);
+        }
+    }
+    return rc;
+}
+
 void main(void)
 {
     init();
+    gpib_setcallback(writer);
     enableInterrupts();
     puts(" Hello\nPETski!");
+    FRESULT rc;
+    // disk things
+    FATFS fatfs;			/* File system object */
+    enum file_state { idle, writing, reading } fstate = idle;
 
+    rc = f_mount(&fatfs, "", 0);
     for (;;) {
-        int command = getchar();
-        switch (command) {
-            case 'b':  // read GPIB data bus
-                show_gpib();
+        enum bus_state state = gpib_state();
+        switch (fstate) {
+            case idle:
+                switch (state) {
+                    case load:
+                        printf("Opening %s for load, ", gpib_filename());
+                        rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_READ);
+                        // try again if it doesn't work the first time
+                        if (rc == FR_NOT_READY) {
+                            rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_READ);
+                        }
+                        printf("rc = 0x%02x\n", rc);
+                        fstate = reading;
+                        break;
+                    case save:
+                        printf("Opening %s for save, ", gpib_filename());
+                        rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_WRITE);
+                        // try again if it doesn't work the first time
+                        if (rc == FR_NOT_READY) {
+                            rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_WRITE);
+                        }
+                        printf("rc = 0x%02x\n", rc);
+                        fstate = writing;
+                        break;
+                }
                 break;
-            case 'c':  // read EXTI_CR1 and CR2
-                printf("EXTI_CR1: %02x, EXTI_CR2: %02x\n", EXTI_CR1, EXTI_CR2);
+            case writing:
+                writer(0, 0);
+                if (state == idle) {
+                    writer(0, 0);
+                    puts("Closing file");
+                    f_close(&file);
+                    fstate = idle;
+                }
                 break;
-            case 'f':  // read the GPIB buffer
-                gpib_printbuffer();
+            case reading:
                 break;
-            case 'i':  // read GPIB int count
-                printf("intcount: %lu\n", gpib_intcount());
-                break;
-            case 'l':  // toggle blue LED
-                FLIP(BLUE_LED);
-                break;
-            case 'r':
-                puts("Resetting now...\n");
-                delay_ms(1000);
-                reset_on_halt();
-                break;
-            case 's':
-                printf("Serial number");
-                dumpmem((BYTE *)0x48cd, 12);
-                break;
-            case 't':
-                test();
-                break;
-            default:
-                // do nothing
+        }
+        if (kbhit()) {
+            int command = getchar();
+            switch (command) {
+                case 'a':  // read GPIB data bus
+                    printf("Device address: %d\n", gpib_address());
+                    break;
+                case 'b':  // read GPIB data bus
+                    show_gpib();
+                    break;
+                case 'c':  // read EXTI_CR1 and CR2
+                    printf("EXTI_CR1: %02x, EXTI_CR2: %02x\n", EXTI_CR1, EXTI_CR2);
+                    break;
+                case 'f':  // dump buffer
+                    dumpmem(buffer, BUFLEN);
+                    break;
+                case 'i':  // read GPIB int count
+                    printf("intcount: %lu\n", gpib_intcount());
+                    break;
+                case 'l':  // toggle blue LED
+                    FLIP(BLUE_LED);
+                    break;
+                case 'm':  // dump memory for filename
+                    dumpmem(gpib_filename(), 32);
+                    break;
+                case 'r':
+                    puts("Resetting now...\n");
+                    f_mount(0, "", 1);
+                    delay_ms(1000);
+                    reset_on_halt();
+                    break;
+                case 's':
+                    printf("Serial number");
+                    dumpmem((BYTE *)0x48cd, 12);
+                    break;
+                case 't':
+                    f_mount(0, "", 1);
+                    test();
+                    break;
+                default:
+                    // do nothing
+            }
         }
         waitForInterrupt();
     }

@@ -5,10 +5,17 @@
 #include "pindefs.h"
 
 static volatile uint32_t intcount = 0;
-static volatile uint8_t data[256];
-static volatile uint8_t flags[256];
-static volatile uint8_t write_location;
-static uint8_t read_location;
+static uint8_t myaddr;
+static enum bus_state state;
+
+static const uint8_t LOAD = 0xF0;
+static const uint8_t SAVE = 0xF1;
+static volatile uint8_t current_cmd;
+
+static volatile uint8_t myfilename[32];
+static volatile uint8_t* fn;
+static int (*callback)(int, int);
+
 
 void atn_isr(void) __interrupt(EXTI1_ISR)
 {
@@ -24,8 +31,69 @@ void dav_isr(void) __interrupt(EXTI0_ISR)
     uint8_t eoi = READ(EOI);
     if (READ(DAV) == 0) {
         CLR(NRFD);
-        data[write_location] = ~gpib_data();
-        flags[write_location++] = (atn ? 0 : 1) | (eoi ? 0 : 2);
+        uint8_t cmd = ~gpib_data();
+        switch (state) {
+            case idle:
+                if (cmd == (0x20 | myaddr)) {
+                    state = listening;
+                }
+                break;
+            case listening:
+                if (cmd == LOAD || cmd == SAVE) {
+                    current_cmd = cmd;
+                    fn = myfilename;
+                    state = filename;
+                } else {
+                    // not for us
+                    state = idle;
+                }
+                break;
+            case filename:
+                *fn++ = cmd;
+                if (!eoi) {
+                    *fn++ = '\0';
+                    state = unlisten;
+                }
+                break;
+            case unlisten:
+                if (!atn && cmd == 0x3F) { // unlisten
+                    state = lagsag;
+                } else {
+                    state = idle;  // error
+                }
+                break;
+            case lagsag:
+                if (!atn
+                    && ((current_cmd == SAVE && cmd == (0x20 | myaddr))
+                    || (current_cmd == LOAD && cmd == (0x40 | myaddr))
+                    ))
+                {
+                    state = scg;
+                } else {
+                    state = idle;  // error
+                }
+                break;
+            case scg:
+                if (atn) {
+                    state = idle; // error
+                } else if (current_cmd == SAVE && cmd == 0x61) {
+                    state = save;
+
+                } else if (current_cmd == LOAD && cmd == 0x60) {
+                    state = load;
+                } else {
+                    state = idle; // error
+                }
+                break;
+            case load:
+                break;
+            case save:
+                callback(cmd, 1);
+                if (!eoi) {
+                    state = idle;
+                }
+                break;
+        }
         SET(NDAC);
     } else {
         CLR(NDAC);
@@ -35,6 +103,8 @@ void dav_isr(void) __interrupt(EXTI0_ISR)
 
 void gpib_init()
 {
+    // read my device address from EEPROM
+    myaddr = EEPROM;
     // configure GPIB 8-bit data as input
     IN_SPAN(GPIBLO);
     IN_SPAN(GPIBHI);
@@ -74,6 +144,7 @@ uint8_t gpib_atn() { return READ(ATN); }
 uint8_t gpib_dav() { return READ(DAV); }
 uint8_t gpib_nrfd() { return READ(NRFD); }
 uint8_t gpib_ndac() { return READ(NDAC); }
+uint8_t gpib_address() { return myaddr; }
 
 uint8_t gpib_data()
 {
@@ -92,11 +163,17 @@ uint32_t gpib_intcount()
     return count;
 }
 
-void gpib_printbuffer()
+enum bus_state gpib_state()
 {
-    puts("data:");
-    for ( ; read_location != write_location; ++read_location) {
-        printf(" %x %02x", flags[read_location], data[read_location]);
-    }
-    putchar('\n');
+    return state;
+}
+
+const char *gpib_filename()
+{
+    return myfilename;
+}
+
+void gpib_setcallback(int (*cb)(int, int))
+{
+    callback = cb;
 }

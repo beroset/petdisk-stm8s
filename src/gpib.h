@@ -16,6 +16,20 @@ uint8_t gpib_dav();
 uint8_t gpib_nrfd();
 uint8_t gpib_ndac();
 uint8_t gpib_data();
+uint8_t gpib_address();
 uint32_t gpib_intcount();
-void gpib_printbuffer();
+void gpib_setcallback(int (*cb)(int, int));
+
+enum bus_state {
+                idle,
+                listening,
+                filename,
+                unlisten,
+                lagsag,
+                scg,
+                load,
+                save
+            };
+enum bus_state gpib_state();
+const char *gpib_filename();
 #endif // GPIB_H
