@@ -2,6 +2,7 @@
 #define STM8_H
 #include <stdint.h>
 // these definitions are from the STM8S207xx STM8S208xx datasheet
+__at(0x4000) volatile uint8_t EEPROM;
 
 // FLASH
 __at(0x505A) volatile uint8_t FLASH_CR1; //  Flash control register 1 (reset: 0x00)
