@@ -187,7 +187,7 @@ void show_gpib()
            gpib_data() & 0xff);
 }
 
-#define BUFLEN 128
+#define BUFLEN 64
 static uint8_t buffer[BUFLEN];
 static FIL file;			/* File object */
 
