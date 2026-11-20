@@ -109,7 +109,6 @@ FRESULT list_dir (const char *path)
     return res;
 }
 
-static const char write_text[] = "Hello world!\r\n";
 void test() {
     FRESULT rc;
     // disk things
@@ -117,6 +116,7 @@ void test() {
     FIL file;			/* File object */
     UINT bw, br, i;
     uint8_t buff[64];
+    static const char write_text[] = "Hello world!\r\n";
 
     printf("\nMount a volume.\n");
     rc = f_mount(&fatfs, "", 0);
