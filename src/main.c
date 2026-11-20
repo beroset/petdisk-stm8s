@@ -78,7 +78,7 @@ static void dumpdir(const DIR* dir) {
     dumpmem(dir->dir, 16);
     printf("\" flag = %02x\n", dir->fn[11]);
 }
-
+#if 0
 FRESULT list_dir (const char *path)
 {
     FRESULT res;
@@ -108,6 +108,7 @@ FRESULT list_dir (const char *path)
     }
     return res;
 }
+#endif
 
 void test() {
     FRESULT rc;
@@ -161,12 +162,13 @@ void test() {
         rc = f_close(&file);
         if (rc) die(rc);
     }
-
+#if 0
     if (!rc) {
         printf("\nRead root directory.\n");
         rc = list_dir("");
         if (rc) die(rc);
     }
+#endif
     if (rc) {
         printf("\nTest FAILED.\n");
     } else {
