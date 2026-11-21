@@ -18,7 +18,7 @@ uint8_t gpib_ndac();
 uint8_t gpib_data();
 uint8_t gpib_address();
 uint32_t gpib_intcount();
-void gpib_setcallback(int (*cb)(int, int));
+void gpib_setcallback(int (*cb)(int));
 
 enum bus_state {
                 idle,

@@ -189,43 +189,45 @@ void show_gpib()
            gpib_data() & 0xff);
 }
 
-#define BUFLEN 64
-static uint8_t buffer[BUFLEN];
+#define BUFLEN 256
+static uint8_t sector_buf[BUFLEN];
+static volatile uint16_t sector_buf_idx = 0;
+static volatile uint8_t sector_buf_full = 0;
+static uint32_t current_sector = 0;
 static FIL file;			/* File object */
 
-int writer(int ch, int from_interrupt)
+static int save_callback(int cmd)
 {
-    static int read_pointer = 0;
-    static int write_pointer = 0;
-    FRESULT rc = 0;
-    if (from_interrupt) {
-        buffer[write_pointer] = ch;
-        ++write_pointer;
-        write_pointer &= (BUFLEN-1);
-    } else {
-        uint8_t buffer2[BUFLEN];
-        int len = 0;
-        disableInterrupts();
-        for (uint8_t *ptr = buffer2; read_pointer != write_pointer; ++read_pointer) {
-            read_pointer &= (BUFLEN-1);
-            *ptr++ = buffer[read_pointer];
-            ++len;
-        }
-        enableInterrupts();
-        if (len) {
-            UINT bw;
-            rc = f_write(&file, buffer2, len, &bw);
-            dumpmem(buffer2, len);
-            printf("rc = %d, len =  %d, bw = %d\n", rc, len, bw);
+    if (sector_buf_idx < BUFLEN) {
+        sector_buf[sector_buf_idx++] = cmd;
+        if (sector_buf_idx == BUFLEN) {
+            sector_buf_full = 1;  /* signal main loop to flush */
         }
     }
-    return rc;
+    return 0;  /* don't change state — stay in save */
+}
+
+static void flush_sector_buf(void)
+{
+    uint16_t idx;
+    disableInterrupts();
+    if (sector_buf_idx > 0) {
+        idx = sector_buf_idx;
+        sector_buf_idx = 0;
+        sector_buf_full = 0;
+        enableInterrupts();
+        UINT bw;
+        f_write(&file, sector_buf, idx, &bw);
+        f_sync(&file);
+    } else {
+        enableInterrupts();
+    }
 }
 
 void main(void)
 {
     init();
-    gpib_setcallback(writer);
+    gpib_setcallback(save_callback);
     enableInterrupts();
     puts(" Hello\nPETski!");
     FRESULT rc;
@@ -251,21 +253,41 @@ void main(void)
                         break;
                     case save:
                         printf("Opening %s for save, ", gpib_filename());
-                        rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_WRITE);
+                        rc = f_open(&file, gpib_filename(), FA_WRITE | FA_CREATE_ALWAYS);
                         // try again if it doesn't work the first time
                         if (rc == FR_NOT_READY) {
-                            rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_WRITE);
+                            rc = f_open(&file, gpib_filename(), FA_WRITE | FA_CREATE_ALWAYS);
                         }
                         printf("rc = 0x%02x\n", rc);
                         fstate = writing;
+                        state = save;  // ensure we're in save state
+                        CLR(NRFD);     // deassert — ready for data
                         break;
                 }
                 break;
             case writing:
-                writer(0, 0);
+                {
+                    uint16_t idx;
+                    disableInterrupts();
+                    if (sector_buf_full) {
+                        idx = sector_buf_idx;
+                        sector_buf_idx = 0;
+                        sector_buf_full = 0;
+                        enableInterrupts();
+                        UINT bw;
+                        f_write(&file, sector_buf, idx, &bw);
+                        f_sync(&file);
+                        current_sector++;
+                        SET(NRFD);  // assert — pause PET
+                        CLR(NRFD);  // deassert — tell PET we're ready again
+                        state = save;  // prevent idle close while NRFD is cycling
+                    } else {
+                        enableInterrupts();
+                    }
+                }
                 if (state == idle) {
-                    writer(0, 0);
                     puts("Closing file");
+                    flush_sector_buf();
                     f_close(&file);
                     fstate = idle;
                 }
@@ -286,7 +308,7 @@ void main(void)
                     printf("EXTI_CR1: %02x, EXTI_CR2: %02x\n", EXTI_CR1, EXTI_CR2);
                     break;
                 case 'f':  // dump buffer
-                    dumpmem(buffer, BUFLEN);
+                    dumpmem(sector_buf, BUFLEN);
                     break;
                 case 'i':  // read GPIB int count
                     printf("intcount: %lu\n", gpib_intcount());

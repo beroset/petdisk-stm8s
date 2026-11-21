@@ -14,7 +14,7 @@ static volatile uint8_t current_cmd;
 
 static volatile uint8_t myfilename[32];
 static volatile uint8_t* fn;
-static int (*callback)(int, int);
+static int (*callback)(int);
 
 
 void atn_isr(void) __interrupt(EXTI1_ISR)
@@ -88,7 +88,7 @@ void dav_isr(void) __interrupt(EXTI0_ISR)
             case load:
                 break;
             case save:
-                callback(cmd, 1);
+                callback(cmd);
                 if (!eoi) {
                     state = idle;
                 }
@@ -173,7 +173,7 @@ const char *gpib_filename()
     return myfilename;
 }
 
-void gpib_setcallback(int (*cb)(int, int))
+void gpib_setcallback(int (*cb)(int))
 {
     callback = cb;
 }
