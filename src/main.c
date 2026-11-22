@@ -78,37 +78,6 @@ static void dumpdir(const DIR* dir) {
     dumpmem(dir->dir, 16);
     printf("\" flag = %02x\n", dir->fn[11]);
 }
-#if 0
-FRESULT list_dir (const char *path)
-{
-    FRESULT res;
-    DIR dir;
-    FILINFO fno;
-    int nfile, ndir;
-
-
-    res = f_opendir(&dir, path);                   /* Open the directory */
-    if (res == FR_OK) {
-        nfile = ndir = 0;
-        for (;;) {
-            res = f_readdir(&dir, &fno);           /* Read a directory item */
-            if (fno.fname[0] == 0) break;          /* Error or end of dir */
-            if (fno.fattrib & AM_DIR) {            /* It is a directory */
-                printf("   <DIR>   %s\n", fno.fname);
-                ndir++;
-            } else {                               /* It is a file */
-                printf("%10lu %s\n", fno.fsize, fno.fname);
-                nfile++;
-            }
-        }
-        f_closedir(&dir);
-        printf("%d dirs, %d files.\n", ndir, nfile);
-    } else {
-        printf("Failed to open \"%s\". (%u)\n", path, res);
-    }
-    return res;
-}
-#endif
 
 void test() {
     FRESULT rc;
@@ -162,13 +131,6 @@ void test() {
         rc = f_close(&file);
         if (rc) die(rc);
     }
-#if 0
-    if (!rc) {
-        printf("\nRead root directory.\n");
-        rc = list_dir("");
-        if (rc) die(rc);
-    }
-#endif
     if (rc) {
         printf("\nTest FAILED.\n");
     } else {
@@ -189,39 +151,28 @@ void show_gpib()
            gpib_data() & 0xff);
 }
 
-#define BUFLEN 256
+#define BUFLEN 512
+#define HALF BUFLEN/2
 static uint8_t sector_buf[BUFLEN];
 static volatile uint16_t sector_buf_idx = 0;
-static volatile uint8_t sector_buf_full = 0;
-static uint32_t current_sector = 0;
+static volatile bool A_full = false;
+static volatile bool B_full = false;
+
 static FIL file;			/* File object */
 
 static int save_callback(int cmd)
 {
     if (sector_buf_idx < BUFLEN) {
         sector_buf[sector_buf_idx++] = cmd;
+        if (sector_buf_idx == HALF) {
+            A_full = true;
+        }
         if (sector_buf_idx == BUFLEN) {
-            sector_buf_full = 1;  /* signal main loop to flush */
+            B_full = true;
+            sector_buf_idx = 0;  // wrap around
         }
     }
-    return 0;  /* don't change state — stay in save */
-}
-
-static void flush_sector_buf(void)
-{
-    uint16_t idx;
-    disableInterrupts();
-    if (sector_buf_idx > 0) {
-        idx = sector_buf_idx;
-        sector_buf_idx = 0;
-        sector_buf_full = 0;
-        enableInterrupts();
-        UINT bw;
-        f_write(&file, sector_buf, idx, &bw);
-        f_sync(&file);
-    } else {
-        enableInterrupts();
-    }
+    return 0;
 }
 
 void main(void)
@@ -243,10 +194,10 @@ void main(void)
                 switch (state) {
                     case load:
                         printf("Opening %s for load, ", gpib_filename());
-                        rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_READ);
+                        rc = f_open(&file, gpib_filename(), FA_READ);
                         // try again if it doesn't work the first time
                         if (rc == FR_NOT_READY) {
-                            rc = f_open(&file, gpib_filename(), FA_OPEN_ALWAYS | FA_READ);
+                            rc = f_open(&file, gpib_filename(), FA_READ);
                         }
                         printf("rc = 0x%02x\n", rc);
                         fstate = reading;
@@ -260,35 +211,38 @@ void main(void)
                         }
                         printf("rc = 0x%02x\n", rc);
                         fstate = writing;
-                        state = save;  // ensure we're in save state
-                        CLR(NRFD);     // deassert — ready for data
                         break;
                 }
                 break;
             case writing:
-                {
-                    uint16_t idx;
-                    disableInterrupts();
-                    if (sector_buf_full) {
-                        idx = sector_buf_idx;
-                        sector_buf_idx = 0;
-                        sector_buf_full = 0;
-                        enableInterrupts();
-                        UINT bw;
-                        f_write(&file, sector_buf, idx, &bw);
-                        f_sync(&file);
-                        current_sector++;
-                        SET(NRFD);  // assert — pause PET
-                        CLR(NRFD);  // deassert — tell PET we're ready again
-                        state = save;  // prevent idle close while NRFD is cycling
-                    } else {
-                        enableInterrupts();
-                    }
+                if (A_full) {
+                    UINT bw;
+                    f_write(&file, sector_buf, HALF, &bw);
+                    f_sync(&file);
+                    puts("Writing A_buff");
+                    A_full = false;
+                }
+                if (B_full) {
+                    UINT bw;
+                    f_write(&file, sector_buf+HALF, HALF, &bw);
+                    f_sync(&file);
+                    puts("Writing B_buff");
+                    B_full = false;
                 }
                 if (state == idle) {
+                    // write any remaining bytes
+                    UINT bw;
+                    bool A = sector_buf_idx < HALF;
+                    f_write(&file, sector_buf + (A ? 0 : HALF), sector_buf_idx - (A ? 0 : HALF), &bw);
+                    printf("Writing from %c, %d (0x%0x) bytes\n",
+                        (sector_buf_idx < HALF ? 'A' : 'B'),
+                        sector_buf_idx - (A ? 0 : HALF),
+                        sector_buf_idx - (A ? 0 : HALF)
+                    );
+                    f_sync(&file);
                     puts("Closing file");
-                    flush_sector_buf();
                     f_close(&file);
+                    sector_buf_idx = 0;
                     fstate = idle;
                 }
                 break;
