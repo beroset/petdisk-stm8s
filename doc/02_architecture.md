@@ -102,3 +102,12 @@ Here's what `LOAD "TEST",8` looks like for new ROMs.  Note that because DAV and 
 1 e0  SCG 00 CLOSE file
 1 3f   UNL (unlisten)
 ```
+
+### Talker vs. Listener
+
+| Pin  | Listener Mode | Talker Mode |
+|------|--------------|-------------|
+| DAV  | IN (PET drives) | OUT (STM8 drives) |
+| EOI  | IN (PET drives) | OUT (STM8 drives) |
+| NRFD | OUT (STM8 drives) | IN (PET drives) |
+| NDAC | OUT (STM8 drives) | IN (PET drives) |
