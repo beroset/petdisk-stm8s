@@ -1,4 +1,39 @@
-# Software Architecture {#archite
+# Software Architecture {#architecture}
+
+This page describes the software architecture of the project.
+
+## Overview
+As mentioned in the [introduction](@ref mainpage) page, there are two main hardware interfaces: the [IEEE-488 bus](@ref gpib) and the [microSD card](@ref microsd).  This project also uses the UART to communicate with the user for troubleshooting and testing.
+
+### Separation of concerns
+To have a clean architecture and to minimize linkage among files, we isolate implementation details of the various hardware interfaces within their associated files.
+
+#### timer.c
+This file implements timer and delay related items using timer3 hardware resources.
+
+#### spi.c
+The SPI bus implementation is in spi.c.
+
+#### uart.c
+The uart.c file contains hardware setup and interface for the UART which uses the hardware UART2.
+
+#### diskio.c
+This file contains low-level disk I/O for FatFs.
+
+#### gpib.c
+This file encapsulates the IEEE-488 (GPIB) details.
+
+#### main.c
+This file has the main loop which manages the state machine for the file system and also manages the UART to react to various single-letter commands.  Note that it also contains and owns the `sector_buf` buffer.
+
+The *only* interaction that gpib.c module has with the buffer is via callbacks -- one for LOAD and one for SAVE.
+
+## Buffers
+The way the `sector_buf` buffer works for SAVE is that it has two contiguous half-buffers.  When the first half buffer is filled, the A_full flag is set and this is the signal to the main routine to write that half-buffer to the file.  While it's writing that half, the GPIB bus is continuing to fill the second half-buffer.  When that second half-buffer is filled, the B_full flag is set to indicate to the main loop to save that half.  When the SAVE is complete (signalled by `fstate` being `writing` but the GPIB `state` is `idle`), there may be some unwritten data in the buffer.  We can can tell which half by looking at the sector_buf_idx.
+
+## Interrupts
+As with many microcontroller projects, the code is primarily interrupt-driven.  After initialization, the `main` loop ends with the WFI (Wait For Interrupt) instruction.  The interrupt sources are:
+
  - timer2: used to toggle the blinking LED
  - timer3: used in timer routines
  - ATN: a GPIO interrupt for the IEEE-488 bus (B5)
