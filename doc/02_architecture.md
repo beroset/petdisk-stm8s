@@ -110,10 +110,21 @@ We'll start with just the implementation for the new ROMs.  The second sent byte
 ### LOAD command
 Here's what `LOAD "TEST",8` looks like for new ROMs.  Note that because DAV and EOI are always driven by the Talker and NRFD and NDAC by the receiver, the roles for these lines will need to be adjusted after the "SCG 00" part in the transfer shown below, and then changed back after the last data byte is sent with EOI.  The ATN line is *always* controlled by the PET.
 
+This assumes that the file named "TEST" is on the SD card and has the following contents:
+
+```
+0000: 01 04 07 04 37 00 8f 00 00 00
+```
+It's how the PET encodes an extremely short but valid BASIC program:
+
+```
+55 REM
+```
+
 ```
 1 28  LAG 08
 1 f0  SCG 16  (LOAD)
-0 54    T
+0 54    T 
 0 45    E
 0 53    S
 2 54    T
@@ -122,15 +133,15 @@ Here's what `LOAD "TEST",8` looks like for new ROMs.  Note that because DAV and 
 1 60  SCG 00
    ; STM8 changes from Listener to Talker
 0 01   \
-0 04   /  loc in memory (0x401)
-0 07   \
-0 04   /  next stmt (0x0407)
-0 37     \
-0 00     / line number (55)
-0 8f   REM token
-0 00   delimiter
-0 00
-2 00   eoi
+0 04    \
+0 07     \
+0 04      \
+0 37
+0 00        file contents
+0 8f      /
+0 00     /
+0 00    /
+2 00   / eoi
    ; STM8 change from Talker back to Listener
 1 5f   UNT (untalk)
 1 28  LAG 08
