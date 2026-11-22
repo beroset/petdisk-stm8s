@@ -1,13 +1,4 @@
-# Software Architecture {#architecture}
-
-This page describes the software architecture of the project.
-
-## Overview
-As mentioned in the [introduction](@ref mainpage) page, there are two main hardware interfaces: the [IEEE-488 bus](@ref gpib) and the [microSD card](@ref microsd).  This project also uses the UART to communicate with the user for troubleshooting and testing.
-
-## Interrupts
-As with many microcontroller projects, the code is primarily interrupt-driven.  After initialization, the `main` loop ends with the WFI (Wait For Interrupt) instruction.  The interrupt sources are:
-
+# Software Architecture {#archite
  - timer2: used to toggle the blinking LED
  - timer3: used in timer routines
  - ATN: a GPIO interrupt for the IEEE-488 bus (B5)
@@ -15,6 +6,8 @@ As with many microcontroller projects, the code is primarily interrupt-driven.  
 
 ## IEEE-488 bus
 The IEEE-488 bus implementation works with a state machine.  The device address is stored in the first byte of EEPROM.  Only PET `LOAD` and `SAVE` commands are currently supported, and these *must* include the file name, even though this is optional on the PET side.
+
+### SAVE command
 
 With program `55 REM`, and then executing `SAVE "TEST",8` on a PET with new ROMs, the data is as follows, with the first single digit representing the flags (ATN = 1, EOI = 2) and the following two hex digits representing the data on the bus:
 
@@ -78,3 +71,34 @@ With the old ROM:
 ```
 
 We'll start with just the implementation for the new ROMs.  The second sent byte is either 0xF1 (SAVE) or 0xF0 (LOAD).  As noted earlier, the file name is required to be sent next, with the last byte of the file name marked with EOI.  After this, if the LOAD command was issued, the PET sends TAG 08 (0x48) or LAG 08 (0x28), assuming the device address is 8.
+
+### LOAD command
+Here's what `LOAD "TEST",8` looks like for new ROMs.  Note that because DAV and EOI are always driven by the Talker and NRFD and NDAC by the receiver, the roles for these lines will need to be adjusted after the "SCG 00" part in the transfer shown below, and then changed back after the last data byte is sent with EOI.  The ATN line is *always* controlled by the PET.
+
+```
+1 28  LAG 08
+1 f0  SCG 16  (LOAD)
+0 54    T
+0 45    E
+0 53    S
+2 54    T
+1 3f   UNL
+1 48  TAG 08  Talker address
+1 60  SCG 00
+   ; STM8 changes from Listener to Talker
+0 01   \
+0 04   /  loc in memory (0x401)
+0 07   \
+0 04   /  next stmt (0x0407)
+0 37     \
+0 00     / line number (55)
+0 8f   REM token
+0 00   delimiter
+0 00
+2 00   eoi
+   ; STM8 change from Talker back to Listener
+1 5f   UNT (untalk)
+1 28  LAG 08
+1 e0  SCG 00 CLOSE file
+1 3f   UNL (unlisten)
+```
