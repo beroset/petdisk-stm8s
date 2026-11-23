@@ -103,8 +103,8 @@
 #define DAV_BIT   2
 #define NRFD_PORT A
 #define NRFD_BIT  1
-#define NDAC_PORT F
-#define NDAC_BIT  4
+#define NDAC_PORT C
+#define NDAC_BIT  2
 #define ATN_PORT  B
 #define ATN_BIT   5
 #define EOI_PORT  B

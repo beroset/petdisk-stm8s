@@ -21,7 +21,7 @@ ATN     | Attention       | interface mgmt    |   11   |  11 |
 EOI     | End or Identify | interface mgmt    |   5    |  12 |
 DAV     | Data Valid      | transfer control  |   6    |   2 |
 NRFD    | Not Ready For Data | transfer control  | 7   |   3 |
-NDAC    | Not Data Accepted  | transfer control  | 8   |   8 |
+NDAC    | Not Data Accepted  | transfer control  | 8   |  19 |
 
 The PET is hardwired to act as the sole controller on the IEEE-488 bus, which means that anything connecting to the PET can only act as a peripheral device.  With the IEEE-488 bus, such devices can operate as a Talker, a Listener or both.  
 

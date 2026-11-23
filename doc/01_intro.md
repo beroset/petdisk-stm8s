@@ -72,31 +72,31 @@ Pin | Function                                | Description      |
  5  | VCAP                                    | 2.2uF to GND     |
  6  | VDD                                     | +5V              |
  7  | VDDIO                                   | +5V              |
- 8  | AIN12/PF4                               | IEEE-488 NDAC    |
+ 8  | AIN12/PF4                               | no-connection    |
  9  | VDDA                                    | +5V              |
  10 | VSSA                                    | GND              |
  11 | [I2C_SDA] AIN5/PB5                      | IEEE-488 ATN     |
  12 | [I2C_SCL] AIN4/PB4                      | IEEE-488 EOI     |
- 13 | [TIM1_ETR] AIN3/PB3                     | no connection    |
+ 13 | [TIM1_ETR] AIN3/PB3                     | 2.2K ohm + LED2  |
  14 | [TIM1_CH3N] AIN2/PB2                    | IEEE-488 DIO6    |
  15 | [TIM1_CH2N] AIN1/PB1                    | IEEE-488 DIO7    |
  16 | [TIM1_CH1N] AIN0/PB0                    | IEEE-488 DIO8    |
- 17 | PE5/SPI_NSS                             | 2.2K ohm + LED   |
+ 17 | PE5/SPI_NSS                             | 2.2K ohm + LED1  |
  18 | PC1 (HS)/TIM1_CH1/UART2_CK              | no-connection    |
- 19 | PC2 (HS)/TIM1_CH2                       | no-connection    |
+ 19 | PC2 (HS)/TIM1_CH2                       | IEEE-488 NDAC    |
  20 | PC3 (HS)/TIM1_CH3                       | no-connection    |
  21 | PC4 (HS)/TIM1_CH4                       | SD card CS       |
  22 | PC5 (HS)/SPI_SCK                        | SD card CLK      |
  23 | PC6 (HS)/SPI_MOSI                       | SD card MOSI     |
  24 | PC7 (HS)/SPI_MISO                       | SD card MISO     |
  25 | PD0 (HS)/TIM3_CH2 [TIM1_BKIN] [CLK_CCO] | IEEE-488 DIO1    |
- 26 | PD1 (HS)/SWIM                           | IEEE-488 DIO2    |
+ 26 | PD1 (HS)/SWIM                           | no-connection    |
  27 | PD2 (HS)/TIM3_CH1 [TIM2_CH3]            | IEEE-488 DIO3    |
  28 | PD3 (HS)/TIM2_CH2 [ADC_ETR]             | IEEE-488 DIO4    |
  29 | PD4 (HS)/TIM2_CH1 [BEEP]                | IEEE-488 DIO5    |
  30 | PD5/UART2_TX                            | serial TX        |
  31 | PD6/UART2_RX                            | serial RX        |
- 32 | PD7/TLI [TIM1_CH4]                      | no-connection    |
+ 32 | PD7/TLI [TIM1_CH4]                      | IEEE-488 DIO2    |
 
 
 ## Identify other needed electronics & design the circuit
@@ -121,7 +121,7 @@ Generically, the first consideration is tools, including compilers, linkers, deb
 
 To program the part while it is in-circuit, one can use the open source [stm8flash](https://github.com/vdudouyt/stm8flash) tool with an ST-Link programming device, which is an inexpensive piece of hardware (inexpensive clones are available under $10) that connects a computer to the circuit for programming and debugging.  
 
-**Note** that for this project, the SWIM pin is also PD1 which is connected to the PET.  To program the part you will have to temporarily disconnect the pin from the cable.
+**Note** that for this project, the orignal assignment for the IEEE-488 DIO2 pin was PD1/SWIM which is connected to the PET, but this meant that to program the part you had to temporarily disconnect the pin from the cable.  That was inconvenient, so now IEEE-488 DIO2 is mapped to PD7.  It means a little more bit twiddling to read and write bytes, but it means that the part can be programmed while connected to the PET, which is a good trade.
 
 Creating software for embedded systems is different from creating software for a typical desktop computer.  The first obvious difference is that developing software for a desktop machine usually means also developing that software on the same full-featured machine which already has an operating system, keyboard, mouse, and display.
 
