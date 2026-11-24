@@ -38,24 +38,9 @@ static void init()
     gpib_init();
 }
 
-
 static void reset_on_halt()
 {
     WWDG_CR = 0x80;
-}
-
-void die (		/* Stop with dying message */
-	FRESULT rc	/* FatFs return value */
-)
-{
-	printf("Failed with rc=%u.\n", rc);
-}
-void fatprint(FATFS *fat)
-{
-    printf("fs_type %d\n", fat->fs_type);
-    printf("csize %d\n", fat->csize);
-    printf("fatbase %ld\n", fat->fatbase);
-    printf("dirbase %ld\n", fat->dirbase);
 }
 
 static void dumpmem(const BYTE* buff, UINT sz) {
@@ -68,95 +53,38 @@ static void dumpmem(const BYTE* buff, UINT sz) {
     putchar('\n');
 }
 
-static void dumpdir(const DIR* dir) {
-    printf("size of dir = %d\n", sizeof(DIR));
-    printf("dptr = 0x%lx, clust = 0x%lx, sect = 0x%lx\n\"", dir->dptr, dir->clust, dir->sect);
-    for (int i=0; i < 11; ++i) {
-        if (i == 8) putchar('.');
-        putchar(dir->fn[i]);
-    }
-    dumpmem(dir->dir, 16);
-    printf("\" flag = %02x\n", dir->fn[11]);
-}
-
-void test() {
-    FRESULT rc;
-    // disk things
-    FATFS fatfs;			/* File system object */
-    FIL file;			/* File object */
-    UINT bw, br, i;
-    uint8_t buff[64];
-    static const char write_text[] = "Hello world!\r\n";
-
-    printf("\nMount a volume.\n");
-    rc = f_mount(&fatfs, "", 0);
-    if (rc) die(rc);
-
-    if (!rc) {
-        printf("\nOpen a test file (message.txt).\n");
-        rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ);
-        // try again if it doesn't work the first time
-        if (rc == FR_NOT_READY) {
-            rc = f_open(&file, "MESSAGE.TXT", FA_OPEN_ALWAYS | FA_READ);
-        }
-        if (rc) die(rc);
-    }
-    fatprint(&fatfs);
-    if (!rc) {
-        printf("\nType the file contents.\n");
-        for (;;) {
-            rc = f_read(&file, &buff, sizeof(buff), &br);	/* Read a chunk of file */
-            if (rc || !br) break;			/* Error or end of file */
-            for (i = 0; i < br; i++)		/* Type the data */
-                putchar(buff[i]);
-        }
-        if (rc) die(rc);
-    }
-    rc = f_close(&file);
-    if (rc) die(rc);
-
-    if (!rc) {
-        printf("\nOpen a file to write (write.txt).\n");
-        rc = f_open(&file, "WRITE.TXT", FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
-        if (rc) die(rc);
-    }
-    if (!rc) {
-        printf("\nWrite a text data. (Hello world!)\n");
-        rc = f_write(&file, write_text, sizeof(write_text) - 1, &bw);
-        if (!rc && bw != sizeof(write_text) - 1) rc = FR_DISK_ERR;
-        if (rc) die(rc);
-    }
-    if (!rc) {
-        printf("\nClose written file.\n");
-        rc = f_close(&file);
-        if (rc) die(rc);
-    }
-    if (rc) {
-        printf("\nTest FAILED.\n");
-    } else {
-        printf("\nTest completed.\n");
-    }
-    f_mount(0, "", 1);
-}
-
 void show_gpib()
 {
-    printf("EOI ATN DAV NRFD NDAC  data\n"
-           " %u   %u   %u    %u    %u    %02x\n",
+    static const char* statenames[] = {
+                "idle",
+                "listening",
+                "filename",
+                "unlisten",
+                "lagsag",
+                "scg",
+                "load",
+                "save"
+    };
+
+    printf("EOI ATN DAV NRFD NDAC  data  state\n"
+           " %u   %u   %u    %u    %u    %02x   %s\n",
            gpib_eoi() != 0,
            gpib_atn() != 0,
            gpib_dav() != 0,
            gpib_nrfd() != 0,
            gpib_ndac() != 0,
-           gpib_data() & 0xff);
+           gpib_dataread() & 0xff,
+           statenames[gpib_state()]);
 }
 
 #define BUFLEN 512
 #define HALF BUFLEN/2
-static uint8_t sector_buf[BUFLEN];
+volatile uint8_t sector_buf[BUFLEN];
 static volatile uint16_t sector_buf_idx = 0;
-static volatile bool A_full = false;
-static volatile bool B_full = false;
+static volatile bool A_end = false;
+static volatile bool B_end = false;
+static bool eof = false;
+static uint16_t eof_index = 0;
 
 static FIL file;			/* File object */
 
@@ -165,25 +93,39 @@ static int save_callback(int cmd)
     if (sector_buf_idx < BUFLEN) {
         sector_buf[sector_buf_idx++] = cmd;
         if (sector_buf_idx == HALF) {
-            A_full = true;
+            A_end = true;
         }
         if (sector_buf_idx == BUFLEN) {
-            B_full = true;
+            B_end = true;
             sector_buf_idx = 0;  // wrap around
         }
     }
     return 0;
 }
 
+static struct loader load_callback(void)
+{
+    static struct loader l;
+    l.byte = sector_buf[sector_buf_idx];
+    l.eoi = (eof && sector_buf_idx == eof_index);
+    ++sector_buf_idx;
+    if (sector_buf_idx == BUFLEN) {
+        sector_buf_idx = 0;
+    }
+    return l;
+}
+
 void main(void)
 {
     init();
-    gpib_setcallback(save_callback);
+    gpib_set_save_callback(save_callback);
+    gpib_set_load_callback(load_callback);
     enableInterrupts();
     puts(" Hello\nPETski!");
     FRESULT rc;
     // disk things
-    FATFS fatfs;			/* File system object */
+    FATFS fatfs;			// File system object
+    FSIZE_t filesize = 0;               // file size (for LOAD)
     enum file_state { idle, writing, reading } fstate = idle;
 
     rc = f_mount(&fatfs, "", 0);
@@ -200,6 +142,11 @@ void main(void)
                             rc = f_open(&file, gpib_filename(), FA_READ);
                         }
                         printf("rc = 0x%02x\n", rc);
+                        if (rc == FR_OK) {
+                            filesize = f_size(&file);
+                            printf("filesize = %lu\n", filesize);
+                        }
+                        A_end = B_end = true;
                         fstate = reading;
                         break;
                     case save:
@@ -215,19 +162,19 @@ void main(void)
                 }
                 break;
             case writing:
-                if (A_full) {
+                if (A_end) {
                     UINT bw;
                     f_write(&file, sector_buf, HALF, &bw);
                     f_sync(&file);
                     puts("Writing A_buff");
-                    A_full = false;
+                    A_end = false;
                 }
-                if (B_full) {
+                if (B_end) {
                     UINT bw;
                     f_write(&file, sector_buf+HALF, HALF, &bw);
                     f_sync(&file);
                     puts("Writing B_buff");
-                    B_full = false;
+                    B_end = false;
                 }
                 if (state == idle) {
                     // write any remaining bytes
@@ -247,6 +194,107 @@ void main(void)
                 }
                 break;
             case reading:
+                if (A_end) {
+                    UINT br;
+                    f_read(&file, sector_buf, HALF, &bw);
+                }
+                /* Interrupt-driven LOAD transfer.
+                 * Main loop: reads HALF-byte chunks from SD card
+                 * ISR (NDAC): drains one byte per PET NDAC pulse
+                 */
+                {
+                    UINT br;
+
+                    // Switch to talker mode on first entry
+                    static bool talking = false;
+                    if (!talking) {
+                        printf("SETUP: entering talker mode\n");
+                        gpib_load_start();
+                        gpib_set_talker_mode();
+                        printf("SETUP: talker mode ready\n");
+                        talking = true;
+                    }
+
+                    // If buffer not ready, read next chunk from SD card
+                    if (!load_buffer_ready) {
+                        // If UNT was detected by the DAV ISR, clean up immediately
+                        if (load_transfer_complete) {
+                            gpib_load_complete();
+                            gpib_set_listener_mode();
+                            f_close(&file);
+                            talking = false;
+                            fstate = idle;
+                            puts("UNT detected, transfer stopped");
+                            break;
+                        }
+
+                        rc = f_read(&file, sector_buf, HALF, &br);
+                        // Verify first few bytes of data after successful read
+                        if (br > 0 && talking) {
+                            printf("SETUP: first bytes: %02x %02x %02x\n",
+                                   sector_buf[0], sector_buf[1], sector_buf[2]);
+                            talking = false; // only print once
+                        }
+                        if (rc != FR_OK) {
+                            // Error — wait for any pending drain, then send EOF
+                            while (load_buffer_ready && !load_transfer_complete) {
+                                waitForInterrupt();
+                            }
+                            // If UNT arrived during wait, skip EOF
+                            if (load_transfer_complete) {
+                                gpib_load_complete();
+                                gpib_set_listener_mode();
+                                f_close(&file);
+                                talking = false;
+                                fstate = idle;
+                                puts("UNT during error");
+                                break;
+                            }
+                            gpib_send_byte_talker(0x00, 1);
+                            gpib_load_complete();
+                            gpib_set_listener_mode();
+                            f_close(&file);
+                            talking = false;
+                            fstate = idle;
+                            printf("Error reading file: %d\n", rc);
+                            break;
+                        }
+                        if (br == 0) {
+                            // Normal EOF — wait for pending bytes to drain,
+                            // or UNT from PET, then clean up
+                            while (load_buffer_ready && !load_transfer_complete) {
+                                waitForInterrupt();
+                            }
+                            if (load_transfer_complete) {
+                                gpib_load_complete();
+                                gpib_set_listener_mode();
+                                f_close(&file);
+                                talking = false;
+                                fstate = idle;
+                                puts("UNT at EOF");
+                                break;
+                            }
+                            gpib_load_complete();
+                            gpib_set_listener_mode();
+                            f_close(&file);
+                            talking = false;
+                            fstate = idle;
+                            puts("br = 0");
+                            break;
+                        } else {
+                            printf("Read %d (0x%02x) bytes\n", br, br);
+                        }
+                        // Set drain state for ISR
+                        load_half_count = br;
+                        load_last_half = (f_tell(&file) >= filesize) ? 1 : 0;
+                        load_buffer_ready = true;
+
+                        // Manually trigger first byte to kick off the handshake.
+                        // The PET is holding NDAC low (waiting for STM8 to initiate),
+                        // so the NDAC ISR will never fire on its own.
+                        gpib_load_drain();
+                    }
+                }
                 break;
         }
         if (kbhit()) {
@@ -282,10 +330,6 @@ void main(void)
                 case 's':
                     printf("Serial number");
                     dumpmem((BYTE *)0x48cd, 12);
-                    break;
-                case 't':
-                    f_mount(0, "", 1);
-                    test();
                     break;
                 default:
                     // do nothing
