@@ -91,7 +91,7 @@
  * ----------|-------|------
  *   DAV     |  PA1  | BRN
  *   NRFD    |  PA2  | RED
- *   NDAC    |  PF4  | ORG
+ *   NDAC    |  PC2  | ORG
  *   ATN     |  PB5  | YEL
  *   EOI     |  PB4  | WHT
  *
@@ -110,7 +110,7 @@
 #define EOI_PORT  B
 #define EOI_BIT   4
 
-// PD0, PD2-PD4, PD7 => DIO1-DIO5
+// PD0, PD2-PD4, PD7 => DIO1, DIO3-DIO5, DIO2
 // 7 6 5 4 3 2 1 0 ; port pins
 // 1 - - 4 3 2 - 0 ; data bits
 #define GPIBLO_SPAN_PORT D
