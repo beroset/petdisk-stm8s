@@ -392,5 +392,7 @@ __at(PI_BASE + Px_CR2) volatile uint8_t PI_CR2;
     EXPAND_CAT3(name, _SPAN, _MASK)
 #define IN_SPAN(name) EXPAND_CAT3(P, name##_SPAN_PORT, _DDR) &= \
     ~(EXPAND_CAT3(name, _SPAN, _MASK))
+#define CCR1_SPAN(name) EXPAND_CAT3(P, name##_SPAN_PORT, _CR1) &= \
+    ~EXPAND_CAT3(name, _SPAN, _MASK)
 
 #endif // STM8_H

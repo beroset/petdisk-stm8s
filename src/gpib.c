@@ -193,6 +193,9 @@ void gpib_set_talker_mode()
     WRITE_SPAN(GPIBLO, 0);
     OUT_SPAN(GPIBLO);
     OUT_SPAN(GPIBHI);
+    // note that because the reset value for PD_CR1 is 0x02, we
+    // need to explicitly set the value so bit 1 works correctly
+    CCR1_SPAN(GPIBLO);
 
     // NRFD: output high -> input
     IN(NRFD);
