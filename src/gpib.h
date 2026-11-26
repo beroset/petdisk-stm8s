@@ -21,16 +21,9 @@ uint8_t gpib_address();
 uint32_t gpib_intcount();
 
 void gpib_set_save_callback(int (*cb)(int));
-struct loader {
-    uint8_t byte;
-    bool eoi;
-};
-void gpib_set_load_callback(struct loader (*cb)(void));
 
-void gpib_set_talker_mode(void);
 void gpib_set_listener_mode(void);
 void gpib_send_byte_talker(uint8_t byte, uint8_t eoi);
-
 
 enum bus_state {
                 idle,
@@ -44,15 +37,8 @@ enum bus_state {
             };
 enum bus_state gpib_state();
 const char *gpib_filename();
-
-/* LOAD transfer management */
-extern volatile bool load_buffer_ready;
-extern volatile uint8_t load_transfer_complete;
-extern volatile uint16_t load_half_count;
-extern volatile uint8_t load_last_half;
-void gpib_load_start(void);
-void gpib_load_drain(void);
-uint8_t gpib_load_active(void);
-void gpib_load_complete(void);
+bool gpib_acked();
+void gpib_dump();
+bool gpib_data_dump(uint8_t byte);
 
 #endif // GPIB_H

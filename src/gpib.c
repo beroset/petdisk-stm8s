@@ -7,6 +7,8 @@
 static volatile uint32_t intcount = 0;
 static uint8_t myaddr;
 static enum bus_state state;
+static bool talking = false;
+static volatile bool acked = false;
 
 static const uint8_t LOAD = 0xF0;
 static const uint8_t SAVE = 0xF1;
@@ -15,26 +17,11 @@ static volatile uint8_t current_cmd;
 static volatile uint8_t myfilename[32];
 static volatile uint8_t* fn;
 static int (*save_callback)(int);
-static struct loader (*load_callback)(void);
-
-/* LOAD transfer management */
-volatile bool load_buffer_ready = false;
-volatile uint8_t load_transfer_complete = 0;
-
-/* LOAD drain state */
-static volatile uint16_t load_drain_pos = 0;
-volatile uint16_t load_half_count = 0;
-volatile uint8_t load_last_half = 0;
 
 void atn_isr(void) __interrupt(EXTI1_ISR)
 {
-    uint8_t atn = READ(ATN);
-    if (atn && state == tx_paused) {
-    gpib_set_talker_mode();
-    } else {
-        SET(NRFD);
-        CLR(NDAC);
-    }
+    SET(NRFD);
+    CLR(NDAC);
     ++intcount;
 }
 
@@ -42,25 +29,7 @@ void dav_isr(void) __interrupt(EXTI0_ISR)
 {
     uint8_t atn = READ(ATN);
     uint8_t eoi = READ(EOI);
-#if 0
-    /* During talker mode (load), only handle UNT to end the transfer.
-     * Do NOT touch NRFD/NDAC — the talker handshake manages those. */
-    if (state == load) {
-        if (READ(DAV) == 0 && !atn) {
-            /* DAV low + ATN low = command byte from PET */
-            uint8_t cmd = ~gpib_dataread();
-            if (cmd == 0x5F) { /* UNT — PET ending talker phase */
-                printf("DAV ISR: UNT detected (0x5F)\n");
-                load_transfer_complete = 1;
-                current_cmd = 0;   /* clear so CLOSE SCG goes to idle */
-                state = idle;
-            }
-        }
-        return; /* don't touch NRFD/NDAC during talker mode */
-    }
-#endif
 
-    FLIP(BLUE_LED);
     if (READ(DAV) == 0) {
         CLR(NRFD);
         uint8_t cmd = ~gpib_dataread();
@@ -133,28 +102,16 @@ void dav_isr(void) __interrupt(EXTI0_ISR)
 
 void ndac_isr(void) __interrupt(EXTI2_ISR)
 {
-    /* Rising edge: PET deasserts NDAC (HIGH) = data accepted.
-     * Deassert DAV, drain next byte if available.
-     */
-    if (load_buffer_ready) {
-        CLR(DAV);
-        /* Double-check volatile */
-        if (load_buffer_ready) {
-            gpib_load_drain();
-        } else {
-            CLR(DAV);
-            load_buffer_ready = false;
-            CCR2(NDAC);
-        }
-    }
+    // Rising edge: PET deasserts NDAC (HIGH) = data accepted.
+    CLR(DAV);
+    FLIP(BLUE_LED);
+    acked = true;
 }
 
 void gpib_init()
 {
     // read my device address from EEPROM
     myaddr = EEPROM;
-
-    state = idle;
 
     IN(ATN);
     CCR1(ATN); // floating
@@ -168,14 +125,17 @@ void gpib_init()
     gpib_set_listener_mode();
 }
 
-void gpib_set_talker_mode()
+static void gpib_set_talker_mode()
 {
+    puts("entering talker mode");
+    talking = true;
+    disableInterrupts();
     // DAV: input -> output, drive low
     // Must drive DAV low explicitly: when switching from input (floating high)
     // to output, ODR state is unknown. PET may see a false DAV rising edge
     // and miss the data or read garbage.
     OUT(DAV);
-    CLR(DAV);
+    SET(DAV);
     SCR1(DAV);
     CCR2(DAV);
 
@@ -204,7 +164,9 @@ void gpib_set_talker_mode()
     // NDAC: output -> input, enable rising-edge interrupt
     IN(NDAC);
     CCR1(NDAC);
+#if 0
     SCR2(NDAC);
+#endif
     EXTI_CR1 = (EXTI_CR1 & ~0x30) | 0x10;  // PC2 rising edge only
 
     // Keep DAV interrupt enabled to detect UNT from PET during talker mode.
@@ -212,15 +174,21 @@ void gpib_set_talker_mode()
 
     // Disable EOI interrupt
     CCR2(EOI);
+    enableInterrupts();
 }
 
 void gpib_set_listener_mode()
 {
+    talking = false;
+    state = idle;
+
     // DAV: output -> input, enable interrupt
     IN(DAV);
     CCR1(DAV);
+#if 1
     SCR2(DAV);
     EXTI_CR1 = (EXTI_CR1 & ~0x03) | 0x03;  // rising or falling edge
+#endif
 
     // EOI: output -> input
     IN(EOI);
@@ -269,101 +237,62 @@ uint32_t gpib_intcount()
 
 void gpib_send_byte_talker(uint8_t byte, uint8_t eoi)
 {
+    if (!talking) {
+        gpib_set_talker_mode();
+    }
+    acked = false;
     // Put byte on GPIB data bus
     gpib_datawrite(~byte);
 
     if (eoi) {
+        CLR(EOI);
+    } else {
         SET(EOI);
     }
+    printf("Sending %02x %s\n", byte, (eoi ? "EOI" : ""));
 
     // Deassert DAV — signals listener that new data is on bus
-    CLR(DAV);
-
-    // Wait for PET to be ready for data
-    printf("TX: waiting NRFD... ");
-    uint32_t nrfd_count = 0;
-    uint32_t ndac_count = 0;
-    while (READ(NRFD)) {
-        nrfd_count++;
-        if (nrfd_count > 100000) {
-            printf("HANG NRFD=%u DAV=%u data=%02x\n",
-                   READ(NRFD), READ(DAV), ~gpib_dataread() & 0xff);
-            break;
-        }
-    }
-    printf("NRFD ok\n");
-
-    // Assert DAV — signal data valid
-    SET(DAV);
-
-    // Wait for PET to accept
-    printf("TX: waiting NDAC... ");
-    while (!READ(NDAC)) {
-        ndac_count++;
-        if (ndac_count > 100000) {
-            printf("HANG NDAC=%u DAV=%u\n", READ(NDAC), READ(DAV));
-            break;
-        }
-    }
-    printf("NDAC ok\n");
-
-    CLR(DAV); // data acknowledged
-
-    // Wait for PET ready for next
-    while (!READ(NDAC));
-
-    if (eoi) {
-        CLR(EOI);
-    }
-}
-
-void gpib_load_start(void)
-{
-    load_buffer_ready = false;
-    load_drain_pos = 0;
-    load_half_count = 0;
-    load_last_half = 0;
-}
-
-void gpib_load_drain(void)
-{
 #if 0
-    uint16_t idx = load_drain_pos;
-    uint8_t byte = sector_buf[idx];
-    uint8_t eoi = 0;
-
-    load_drain_pos++;
-
-    /* Assert EOI on the very last byte of the file */
-    if (load_drain_pos >= load_half_count && load_last_half) {
-        eoi = 1;
-    }
-
-    printf("DRAIN: byte=%02x eoi=%d pos=%u/%u\n", byte, eoi, load_drain_pos, load_half_count);
-    gpib_send_byte_talker(byte, eoi);
-    printf("DRAIN: done\n");
-
-    /* If this half is fully drained, signal main loop to read more */
-    if (load_drain_pos >= load_half_count) {
-        load_buffer_ready = false;
-        printf("DRAIN: half done, buffer_ready=false\n");
-    }
-#endif
-}
-
-uint8_t gpib_load_active(void)
-{
-    return load_buffer_ready;
-}
-
-void gpib_load_complete(void)
-{
-    load_buffer_ready = false;
-    disableInterrupts();
-    CCR2(NDAC);
     CLR(DAV);
-    enableInterrupts();
+#else
+#endif
+    // gpib_dump();
+    uint32_t timeout;
+    const uint32_t MAXTIME = 50000;
+    for (timeout=MAXTIME; timeout; --timeout) {
+        bool nrfd = READ(NRFD);
+        if (nrfd) break;
+    }
+    if (!timeout) {
+        puts("NRFD high timeout");
+    }
+    CLR(DAV);
+    for (timeout=MAXTIME; timeout; --timeout) {
+        bool nrfd = READ(NRFD);
+        if (!nrfd) break;
+    }
+    if (!timeout) {
+        puts("NRFD low timeout");
+    }
+    for (timeout=MAXTIME; timeout; --timeout) {
+        bool ndac = READ(NDAC);
+        if (ndac) break;
+    }
+    if (!timeout) {
+        puts("NDAC high timeout");
+    }
+    SET(DAV);
+    for (timeout=MAXTIME; timeout; --timeout) {
+        bool ndac = READ(NDAC);
+        if (!ndac) break;
+    }
+    if (!timeout) {
+        puts("NDAC low timeout");
+    }
+    SET(DAV);
+    acked = true;
 }
+
 
 uint8_t gpib_eoi() { return READ(EOI); }
 uint8_t gpib_atn() { return READ(ATN); }
@@ -371,6 +300,8 @@ uint8_t gpib_dav() { return READ(DAV); }
 uint8_t gpib_nrfd() { return READ(NRFD); }
 uint8_t gpib_ndac() { return READ(NDAC); }
 uint8_t gpib_address() { return myaddr; }
+
+bool gpib_acked() { return acked; }
 
 enum bus_state gpib_state()
 {
@@ -387,7 +318,45 @@ void gpib_set_save_callback(int (*cb)(int))
     save_callback = cb;
 }
 
-void gpib_set_load_callback(struct loader (*cb)(void))
+void gpib_dump()
 {
-    load_callback = cb;
+    static const char* statenames[] = {
+                "idle",
+                "listening",
+                "filename",
+                "unlisten",
+                "lagsag",
+                "scg",
+                "load",
+                "save"
+    };
+
+    printf("EOI ATN DAV NRFD NDAC  data  state\n"
+           " %u   %u   %u    %u    %u    %02x   %s\n",
+           gpib_eoi() != 0,
+           gpib_atn() != 0,
+           gpib_dav() != 0,
+           gpib_nrfd() != 0,
+           gpib_ndac() != 0,
+           ~gpib_dataread() & 0xff,
+           statenames[gpib_state()]);
+}
+
+bool gpib_data_dump(uint8_t byte) {
+    static bool dumptoggle = true;
+    if (dumptoggle) {
+        WRITE_SPAN(GPIBHI, 0);
+        WRITE_SPAN(GPIBLO, 0);
+        OUT_SPAN(GPIBLO);
+        OUT_SPAN(GPIBHI);
+        gpib_datawrite(~byte);
+
+    } else {
+        WRITE_SPAN(GPIBHI, 0);
+        WRITE_SPAN(GPIBLO, 0);
+        IN_SPAN(GPIBLO);
+        IN_SPAN(GPIBHI);
+    }
+    dumptoggle = !dumptoggle;
+    return dumptoggle;
 }
